@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Play, Pause, RotateCcw, Coffee } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-const STUDY_TIME = 25 * 60;
+const STUDY_TIME = 30 * 60;
 const BREAK_TIME = 5 * 60;
 
 const PomodoroTimer = () => {
