@@ -1,7 +1,6 @@
 import { BookOpen, Sparkles } from "lucide-react";
 import PomodoroTimer from "@/components/PomodoroTimer";
-import FlashcardDeck from "@/components/FlashcardDeck";
-import StudyNotes from "@/components/StudyNotes";
+import StudyMaterials from "@/components/StudyMaterials";
 import StatsGrid from "@/components/StatsGrid";
 
 const Index = () => {
@@ -42,20 +41,12 @@ const Index = () => {
             </section>
           </div>
 
-          {/* Center Column — Flashcards */}
-          <div>
+          {/* Center + Right — PS Study Materials */}
+          <div className="lg:col-span-2">
             <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-              Flashcards
+              PS Study Materials
             </h2>
-            <FlashcardDeck />
-          </div>
-
-          {/* Right Column — Notes */}
-          <div>
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-              Study Notes
-            </h2>
-            <StudyNotes />
+            <StudyMaterials />
           </div>
         </div>
       </main>
