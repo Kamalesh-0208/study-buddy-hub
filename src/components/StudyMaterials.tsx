@@ -36,33 +36,12 @@ const SECTIONS: Section[] = [
   {
     title: "HTML & CSS",
     resources: [
-      { label: "HTML & CSS Full Course (English)", url: "https://youtu.be/G3e-cpL7ofc?si=nvLl0yUvI3k75wUG", type: "video" },
-      { label: "HTML & CSS Full Course (Tamil)", url: "https://youtu.be/HGTJBPNC-Gw?si=w2cUz-qGYDWuCVJS", type: "video" },
-    ],
-  },
-  {
-    title: "Git & GitHub",
-    resources: [
-      { label: "Git & GitHub Tutorial", url: "https://youtu.be/VIBWdLLq9kQ?si=e1rhMOFJ74-fcpT0", type: "video" },
-      { label: "Git & GitHub PDF", url: "https://drive.google.com/file/d/1Qb8I3ovjTqKxLwYFFZsx1tI-8rxL3zkQ/view?usp=drivesdk", type: "pdf" },
-    ],
-  },
-  {
-    title: "JavaScript",
-    resources: [
-      { label: "JavaScript Full Course (English)", url: "https://youtu.be/lfmg-EJ8gm4?si=_hrKAKnvyG7XoxJe", type: "video" },
-      { label: "JavaScript Full Course (For English)", url: "https://youtu.be/EerdGm-ehJQ?si=n7FqBVWvrEVba5hp", type: "video" },
+      { label: "HTML & CSS Question Reference", url: "https://drive.google.com/file/d/10I6-fj8cZIBM-yBkyQIvVhNWQLrnnsAb/view?usp=drivesdk", type: "link" },
     ],
   },
   {
     title: "C-Programming",
     subSections: [
-      {
-        title: "Video Tutorial",
-        resources: [
-          { label: "C Programming Full Course", url: "https://youtu.be/fmSnLiAv-zc?si=JvgC1x9fOQiuKY6L", type: "video" },
-        ],
-      },
       {
         title: "C-2 Practice Questions",
         resources: [
