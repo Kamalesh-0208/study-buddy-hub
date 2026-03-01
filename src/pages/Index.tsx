@@ -1,60 +1,63 @@
-import { GraduationCap, Sparkles } from "lucide-react";
-import PomodoroTimer from "@/components/PomodoroTimer";
-import StudyMaterials from "@/components/StudyMaterials";
+import { useState } from "react";
+import { Plus } from "lucide-react";
+import AppSidebar from "@/components/AppSidebar";
+import TopNavbar from "@/components/TopNavbar";
+import SmartFocus from "@/components/SmartFocus";
+import TaskPlanner from "@/components/TaskPlanner";
+import StudyMaterialsHub from "@/components/StudyMaterialsHub";
+import PerformanceAnalytics from "@/components/PerformanceAnalytics";
+import Gamification from "@/components/Gamification";
+import AIInsights from "@/components/AIInsights";
 import StatsGrid from "@/components/StatsGrid";
 
 const Index = () => {
+  const [activeNav, setActiveNav] = useState("dashboard");
+
   return (
-    <div className="min-h-screen">
-      {/* Header */}
-      <header className="sticky top-0 z-10 px-6 py-4 card-glass-static border-b border-border/40">
-        <div className="mx-auto flex max-w-6xl items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="gradient-bg rounded-2xl p-2.5 shadow-glow">
-              <GraduationCap className="h-6 w-6 text-primary-foreground" />
-            </div>
-            <div>
-              <h1 className="text-xl font-extrabold gradient-text tracking-tight">StudyFlow</h1>
-              <p className="text-[11px] text-muted-foreground font-medium">Your personal study hub</p>
-            </div>
-          </div>
-          <div className="hidden sm:flex items-center gap-2 rounded-full bg-secondary/80 px-4 py-2 text-xs font-semibold text-primary">
-            <Sparkles className="h-3.5 w-3.5" />
-            <span>Keep learning!</span>
-          </div>
-        </div>
-      </header>
+    <div className="flex min-h-screen">
+      <AppSidebar active={activeNav} onNavigate={setActiveNav} />
 
-      {/* Main Content */}
-      <main className="mx-auto max-w-6xl px-6 py-10">
-        <div className="grid gap-10 lg:grid-cols-[340px_1fr]">
-          {/* Left Column — Timer */}
-          <div className="flex flex-col gap-8">
-            <section>
-              <h2 className="mb-4 text-xs font-bold uppercase tracking-[0.15em] text-muted-foreground">
-                ⏱ Pomodoro Timer
+      <div className="flex-1 flex flex-col min-w-0">
+        <TopNavbar />
+
+        <main className="flex-1 px-6 py-8 overflow-y-auto scrollbar-thin">
+          <div className="max-w-[1200px] mx-auto space-y-8">
+            {/* Welcome */}
+            <div className="animate-fade-in">
+              <h2 className="text-2xl font-extrabold text-foreground tracking-tight">
+                Good evening, Student 👋
               </h2>
-              <PomodoroTimer />
-            </section>
+              <p className="text-sm text-muted-foreground mt-1">
+                You've studied <span className="font-semibold text-primary">4.5 hours</span> today. Keep the momentum going!
+              </p>
+            </div>
+
+            {/* Stats */}
+            <StatsGrid />
+
+            {/* Focus + Tasks */}
+            <div className="grid gap-6 lg:grid-cols-2">
+              <SmartFocus />
+              <TaskPlanner />
+            </div>
+
+            {/* Materials + Gamification + AI */}
+            <div className="grid gap-6 lg:grid-cols-3">
+              <StudyMaterialsHub />
+              <Gamification />
+              <AIInsights />
+            </div>
+
+            {/* Analytics */}
+            <PerformanceAnalytics />
           </div>
+        </main>
 
-          {/* Right Column — Study Materials */}
-          <section>
-            <h2 className="mb-4 text-xs font-bold uppercase tracking-[0.15em] text-muted-foreground">
-              📚 PS Study Materials
-            </h2>
-            <StudyMaterials />
-          </section>
-        </div>
-
-        {/* Bottom — Stats */}
-        <section className="mt-10">
-          <h2 className="mb-4 text-xs font-bold uppercase tracking-[0.15em] text-muted-foreground">
-            📊 Your Stats
-          </h2>
-          <StatsGrid />
-        </section>
-      </main>
+        {/* FAB */}
+        <button className="fixed bottom-6 right-6 h-12 w-12 rounded-2xl gradient-bg text-primary-foreground shadow-glow flex items-center justify-center hover:scale-105 transition-transform z-40">
+          <Plus className="h-5 w-5" />
+        </button>
+      </div>
     </div>
   );
 };
