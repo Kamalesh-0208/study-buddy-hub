@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronLeft, Video, FileText, ExternalLink } from "lucide-react";
+import { ChevronLeft, Video, FileText, ExternalLink, BookOpen, Code, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface Resource {
@@ -15,6 +15,8 @@ interface SubSection {
 
 interface Section {
   title: string;
+  icon: React.ElementType;
+  color: string;
   subSections?: SubSection[];
   resources?: Resource[];
 }
@@ -22,6 +24,8 @@ interface Section {
 const SECTIONS: Section[] = [
   {
     title: "IPR",
+    icon: Shield,
+    color: "250 70% 56%",
     subSections: [
       {
         title: "IPR Level-1 Study Material",
@@ -35,12 +39,16 @@ const SECTIONS: Section[] = [
   },
   {
     title: "HTML & CSS",
+    icon: Code,
+    color: "200 70% 50%",
     resources: [
       { label: "HTML & CSS Question Reference", url: "https://drive.google.com/file/d/10I6-fj8cZIBM-yBkyQIvVhNWQLrnnsAb/view?usp=drivesdk", type: "link" },
     ],
   },
   {
     title: "C-Programming",
+    icon: BookOpen,
+    color: "152 55% 45%",
     subSections: [
       {
         title: "C-2 Practice Questions",
@@ -62,7 +70,7 @@ const SECTIONS: Section[] = [
 
 const ResourceIcon = ({ type }: { type: Resource["type"] }) => {
   if (type === "video") return <Video className="h-4 w-4 text-primary" />;
-  if (type === "pdf") return <FileText className="h-4 w-4 text-primary" />;
+  if (type === "pdf") return <FileText className="h-4 w-4 text-accent" />;
   return <ExternalLink className="h-4 w-4 text-primary" />;
 };
 
@@ -71,19 +79,28 @@ const StudyMaterials = () => {
 
   if (activeSection) {
     return (
-      <div className="flex flex-col gap-4 animate-fade-in">
+      <div className="flex flex-col gap-5 animate-fade-in">
         <Button
           size="sm"
           variant="ghost"
-          className="self-start"
+          className="self-start rounded-xl text-muted-foreground hover:text-foreground"
           onClick={() => setActiveSection(null)}
         >
-          <ChevronLeft className="mr-1 h-4 w-4" /> Back to Subjects
+          <ChevronLeft className="mr-1 h-4 w-4" /> Back
         </Button>
 
-        <h3 className="text-xl font-bold text-foreground">{activeSection.title}</h3>
+        <div className="flex items-center gap-3">
+          <div
+            className="icon-circle h-10 w-10"
+            style={{
+              background: `linear-gradient(135deg, hsl(${activeSection.color} / 0.15), hsl(${activeSection.color} / 0.05))`,
+            }}
+          >
+            <activeSection.icon className="h-5 w-5" style={{ color: `hsl(${activeSection.color})` }} />
+          </div>
+          <h3 className="text-xl font-bold text-foreground">{activeSection.title}</h3>
+        </div>
 
-        {/* Direct resources */}
         {activeSection.resources && (
           <div className="flex flex-col gap-2">
             {activeSection.resources.map((r, i) => (
@@ -92,20 +109,21 @@ const StudyMaterials = () => {
                 href={r.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-3 rounded-lg border bg-card p-4 transition-all hover:bg-accent/50 hover:shadow-md"
+                className="flex items-center gap-3 rounded-xl card-glass p-4"
               >
-                <ResourceIcon type={r.type} />
-                <span className="font-medium text-foreground">{r.label}</span>
-                <ExternalLink className="ml-auto h-3.5 w-3.5 text-muted-foreground" />
+                <div className="icon-circle h-9 w-9 shrink-0">
+                  <ResourceIcon type={r.type} />
+                </div>
+                <span className="font-medium text-foreground text-sm">{r.label}</span>
+                <ExternalLink className="ml-auto h-3.5 w-3.5 text-muted-foreground/50" />
               </a>
             ))}
           </div>
         )}
 
-        {/* Sub-sections */}
         {activeSection.subSections?.map((sub, si) => (
           <div key={si} className="flex flex-col gap-2">
-            <h4 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mt-2">
+            <h4 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mt-2 px-1">
               {sub.title}
             </h4>
             {sub.resources.map((r, i) => (
@@ -114,11 +132,13 @@ const StudyMaterials = () => {
                 href={r.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-3 rounded-lg border bg-card p-4 transition-all hover:bg-accent/50 hover:shadow-md"
+                className="flex items-center gap-3 rounded-xl card-glass p-4"
               >
-                <ResourceIcon type={r.type} />
-                <span className="font-medium text-foreground">{r.label}</span>
-                <ExternalLink className="ml-auto h-3.5 w-3.5 text-muted-foreground" />
+                <div className="icon-circle h-9 w-9 shrink-0">
+                  <ResourceIcon type={r.type} />
+                </div>
+                <span className="font-medium text-foreground text-sm">{r.label}</span>
+                <ExternalLink className="ml-auto h-3.5 w-3.5 text-muted-foreground/50" />
               </a>
             ))}
           </div>
@@ -128,21 +148,33 @@ const StudyMaterials = () => {
   }
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2 animate-fade-in">
-      {SECTIONS.map((section) => (
-        <button
-          key={section.title}
-          onClick={() => setActiveSection(section)}
-          className="rounded-xl border bg-card p-6 text-left transition-all hover:bg-accent/50 hover:shadow-md card-shadow"
-        >
-          <h3 className="text-lg font-bold text-foreground">{section.title}</h3>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {(section.resources?.length || 0) +
-              (section.subSections?.reduce((a, s) => a + s.resources.length, 0) || 0)}{" "}
-            resources
-          </p>
-        </button>
-      ))}
+    <div className="grid gap-4 sm:grid-cols-3 animate-fade-in">
+      {SECTIONS.map((section) => {
+        const count =
+          (section.resources?.length || 0) +
+          (section.subSections?.reduce((a, s) => a + s.resources.length, 0) || 0);
+
+        return (
+          <button
+            key={section.title}
+            onClick={() => setActiveSection(section)}
+            className="rounded-2xl card-glass card-hover-lift p-6 text-left group"
+          >
+            <div
+              className="icon-circle h-12 w-12 mb-4"
+              style={{
+                background: `linear-gradient(135deg, hsl(${section.color} / 0.15), hsl(${section.color} / 0.05))`,
+              }}
+            >
+              <section.icon className="h-6 w-6" style={{ color: `hsl(${section.color})` }} />
+            </div>
+            <h3 className="text-base font-bold text-foreground">{section.title}</h3>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {count} resource{count !== 1 ? "s" : ""}
+            </p>
+          </button>
+        );
+      })}
     </div>
   );
 };
