@@ -282,9 +282,6 @@ const SkillLearningPlanner = () => {
                     )}
                   </motion.div>
                 )}
-              </AnimatePresence>
-                )}
-              </AnimatePresence>
             </div>
           ))}
         </div>
