@@ -1,12 +1,20 @@
 import SmartFocus from "@/components/SmartFocus";
 import AIInsights from "@/components/AIInsights";
 import { motion } from "framer-motion";
-import { useStudyStore } from "@/store/useStudyStore";
+import { useSessions } from "@/hooks/useSessions";
+import { useSubjects } from "@/hooks/useSubjects";
 import { Clock, Zap } from "lucide-react";
 
 const FocusPage = () => {
-  const { sessions } = useStudyStore();
-  const recentSessions = sessions.slice(-5).reverse();
+  const { sessions } = useSessions();
+  const { subjects } = useSubjects();
+  const recentSessions = sessions.slice(0, 5);
+
+  const getSubjectName = (subjectId: string | null) => {
+    if (!subjectId) return "General";
+    const s = subjects.find((sub) => sub.id === subjectId);
+    return s?.name ?? "Unknown";
+  };
 
   return (
     <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
@@ -19,7 +27,6 @@ const FocusPage = () => {
         <SmartFocus />
         <div className="space-y-6">
           <AIInsights />
-          {/* Session History */}
           <div className="rounded-2xl glass-strong p-6">
             <h3 className="text-sm font-bold text-foreground mb-4 flex items-center gap-2">
               <div className="icon-bg h-8 w-8"><Clock className="h-4 w-4 text-primary" /></div>
@@ -39,10 +46,10 @@ const FocusPage = () => {
                 >
                   <div className="icon-bg h-8 w-8 shrink-0"><Zap className="h-3.5 w-3.5 text-primary" /></div>
                   <div className="flex-1">
-                    <p className="text-xs font-semibold text-foreground">{s.subject}</p>
-                    <p className="text-[10px] text-muted-foreground">{Math.round(s.duration / 60)} min • Score: {s.focusScore}%</p>
+                    <p className="text-xs font-semibold text-foreground">{getSubjectName(s.subject_id)}</p>
+                    <p className="text-[10px] text-muted-foreground">{Math.round(s.duration_seconds / 60)} min • Score: {s.focus_score ?? 80}%</p>
                   </div>
-                  <span className="text-[10px] text-muted-foreground">{new Date(s.date).toLocaleDateString()}</span>
+                  <span className="text-[10px] text-muted-foreground">{new Date(s.start_time).toLocaleDateString()}</span>
                 </motion.div>
               ))}
             </div>
