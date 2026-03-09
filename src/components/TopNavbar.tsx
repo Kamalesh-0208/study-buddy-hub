@@ -86,6 +86,7 @@ const TopNavbar = ({ darkMode, toggleDarkMode }: TopNavbarProps) => {
       </div>
 
       <div className="flex items-center gap-3">
+        <FeatureRequestDialog />
         <div className="hidden sm:flex items-center gap-1.5 rounded-xl bg-secondary/60 px-3 py-2 text-xs font-semibold text-foreground">
           <Flame className="h-4 w-4 text-study-warning" />
           <span>{profile?.current_streak ?? 0}-day streak</span>
