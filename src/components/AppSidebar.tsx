@@ -1,7 +1,7 @@
 import { useState } from "react";
 import {
   LayoutDashboard, Target, ListTodo, BookOpen, BarChart3,
-  Trophy, Medal, Settings, ChevronLeft, ChevronRight, Zap, Brain,
+  Trophy, Medal, Settings, ChevronLeft, ChevronRight, Zap, Brain, ClipboardCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -16,6 +16,7 @@ const navItems = [
   { icon: Trophy, label: "Goals", path: "/goals" },
   { icon: Medal, label: "Leaderboard", path: "/leaderboard" },
   { icon: Brain, label: "AI Planner", path: "/planner" },
+  { icon: ClipboardCheck, label: "Assessment", path: "/assessment" },
 ];
 
 const bottomItems = [
