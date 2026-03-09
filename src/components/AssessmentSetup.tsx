@@ -76,14 +76,14 @@ const AssessmentSetup = ({ onStart, loading }: Props) => {
               <CardDescription>Choose the type of assessment you want to take</CardDescription>
             </CardHeader>
             <CardContent>
-              <RadioGroup value={config.skillCategory} onValueChange={(v) => setConfig({ ...config, skillCategory: v as any, skill: "" })}>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <RadioGroup value={config.skillCategory} onValueChange={handleCategoryChange}>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <Label htmlFor="cat-prog" className="cursor-pointer">
                     <Card className={`p-4 transition-all ${config.skillCategory === "programming" ? "border-primary bg-primary/5" : "hover:border-muted-foreground/30"}`}>
                       <div className="flex items-start gap-3">
                         <RadioGroupItem value="programming" id="cat-prog" />
                         <div>
-                          <div className="flex items-center gap-2 font-semibold"><Code className="h-4 w-4" /> Programming Skill</div>
+                          <div className="flex items-center gap-2 font-semibold"><Code className="h-4 w-4" /> Programming</div>
                           <p className="text-xs text-muted-foreground mt-1">Coding problems with test cases</p>
                         </div>
                       </div>
@@ -96,6 +96,17 @@ const AssessmentSetup = ({ onStart, loading }: Props) => {
                         <div>
                           <div className="flex items-center gap-2 font-semibold"><BookOpen className="h-4 w-4" /> One-Mark / Theory</div>
                           <p className="text-xs text-muted-foreground mt-1">MCQ questions with explanations</p>
+                        </div>
+                      </div>
+                    </Card>
+                  </Label>
+                  <Label htmlFor="cat-htmlcss" className="cursor-pointer">
+                    <Card className={`p-4 transition-all ${config.skillCategory === "htmlcss" ? "border-primary bg-primary/5" : "hover:border-muted-foreground/30"}`}>
+                      <div className="flex items-start gap-3">
+                        <RadioGroupItem value="htmlcss" id="cat-htmlcss" />
+                        <div>
+                          <div className="flex items-center gap-2 font-semibold"><Palette className="h-4 w-4" /> HTML/CSS</div>
+                          <p className="text-xs text-muted-foreground mt-1">Recreate webpage designs</p>
                         </div>
                       </div>
                     </Card>
