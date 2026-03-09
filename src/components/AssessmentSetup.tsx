@@ -8,8 +8,9 @@ import { Badge } from "@/components/ui/badge";
 import { Code, BookOpen, Zap, GraduationCap, Play, FileCheck } from "lucide-react";
 import { motion } from "framer-motion";
 
-const PROGRAMMING_SKILLS = ["C", "C++", "Java", "JavaScript", "HTML", "CSS", "React"];
+const PROGRAMMING_SKILLS = ["C", "C++", "Java", "JavaScript", "React"];
 const THEORY_SKILLS = ["Aptitude", "Logical Reasoning", "Algebra", "Calculus", "Differential Equations", "Data Structures", "DBMS", "Communication Skills"];
+const HTMLCSS_TOPICS = ["Landing Page", "Navbar Layout", "Profile Card", "Pricing Section", "Product Page", "Dashboard Layout", "Login Page", "Blog Layout"];
 
 interface AssessmentConfig {
   skillCategory: "programming" | "theory";
