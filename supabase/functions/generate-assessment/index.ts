@@ -1,0 +1,233 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+};
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  try {
+    const { skillCategory, skill, topic, mode, difficulty } = await req.json();
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+
+    const isProgramming = skillCategory === "programming";
+    const isExam = mode === "exam";
+
+    let systemPrompt: string;
+    let toolSchema: any;
+
+    if (isProgramming) {
+      const questionCount = isExam ? 2 : 2;
+      systemPrompt = `You are an expert programming assessment generator for students. Generate ${questionCount} coding problems for the skill "${skill}" on the topic "${topic}" at "${difficulty}" difficulty.
+
+Each problem must be a real coding challenge appropriate for the difficulty level. Include clear problem descriptions, constraints, and test cases.
+
+For each problem provide:
+- A clear title
+- Problem description (detailed)
+- Input format description
+- Output format description
+- Constraints
+- 2 sample test cases (input + expected output)
+- 2 hidden test cases (input + expected output) for validation
+- A complete correct solution in ${skill}
+- Explanation of the solution logic
+- Common mistakes students make
+
+${isExam ? "This is for EXAM mode - do NOT include solutions or hints in the questions themselves. Solutions will be revealed after submission." : "This is for PRACTICE mode - include solutions and explanations with each problem."}`;
+
+      toolSchema = {
+        type: "function",
+        function: {
+          name: "generate_programming_assessment",
+          description: "Generate programming coding problems",
+          parameters: {
+            type: "object",
+            properties: {
+              problems: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    title: { type: "string" },
+                    description: { type: "string" },
+                    input_format: { type: "string" },
+                    output_format: { type: "string" },
+                    constraints: { type: "string" },
+                    sample_tests: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        properties: {
+                          input: { type: "string" },
+                          expected_output: { type: "string" },
+                        },
+                        required: ["input", "expected_output"],
+                        additionalProperties: false,
+                      },
+                    },
+                    hidden_tests: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        properties: {
+                          input: { type: "string" },
+                          expected_output: { type: "string" },
+                        },
+                        required: ["input", "expected_output"],
+                        additionalProperties: false,
+                      },
+                    },
+                    solution_code: { type: "string" },
+                    solution_explanation: { type: "string" },
+                    common_mistakes: {
+                      type: "array",
+                      items: { type: "string" },
+                    },
+                    difficulty_label: { type: "string" },
+                  },
+                  required: ["title", "description", "input_format", "output_format", "constraints", "sample_tests", "hidden_tests", "solution_code", "solution_explanation", "common_mistakes", "difficulty_label"],
+                  additionalProperties: false,
+                },
+              },
+              timer_minutes: { type: "number" },
+              instructions: { type: "string" },
+            },
+            required: ["problems", "timer_minutes", "instructions"],
+            additionalProperties: false,
+          },
+        },
+      };
+    } else {
+      // One-mark / theory questions
+      const questionCount = isExam ? 40 : 10;
+      let difficultyInstruction = "";
+      if (difficulty === "mixed" && isExam) {
+        difficultyInstruction = "Generate exactly 15 Easy, 15 Medium, and 10 Hard questions.";
+      } else {
+        difficultyInstruction = `All questions should be ${difficulty} difficulty.`;
+      }
+
+      systemPrompt = `You are an expert assessment question generator for students. Generate exactly ${questionCount} multiple choice questions for the skill "${skill}" on the topic "${topic}".
+
+${difficultyInstruction}
+
+Each question must have exactly 4 options (A, B, C, D) with exactly one correct answer. Questions must follow standard competitive exam patterns and be educationally sound.
+
+For each question provide:
+- Question text
+- 4 options
+- Correct answer letter (A/B/C/D)
+- Detailed explanation with step-by-step solving method
+- Difficulty label (easy/medium/hard)
+
+${isExam ? "This is EXAM mode with negative marking: +1 for correct, -0.25 for wrong. Pass mark is 24/40." : "This is PRACTICE mode - show explanations after each question."}`;
+
+      toolSchema = {
+        type: "function",
+        function: {
+          name: "generate_mcq_assessment",
+          description: "Generate MCQ assessment questions",
+          parameters: {
+            type: "object",
+            properties: {
+              questions: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    question_number: { type: "number" },
+                    question_text: { type: "string" },
+                    options: {
+                      type: "object",
+                      properties: {
+                        A: { type: "string" },
+                        B: { type: "string" },
+                        C: { type: "string" },
+                        D: { type: "string" },
+                      },
+                      required: ["A", "B", "C", "D"],
+                      additionalProperties: false,
+                    },
+                    correct_answer: { type: "string" },
+                    explanation: { type: "string" },
+                    difficulty_label: { type: "string" },
+                  },
+                  required: ["question_number", "question_text", "options", "correct_answer", "explanation", "difficulty_label"],
+                  additionalProperties: false,
+                },
+              },
+              timer_minutes: { type: "number" },
+              total_questions: { type: "number" },
+              pass_mark: { type: "number" },
+              scoring_rules: { type: "string" },
+              instructions: { type: "string" },
+            },
+            required: ["questions", "timer_minutes", "total_questions", "pass_mark", "scoring_rules", "instructions"],
+            additionalProperties: false,
+          },
+        },
+      };
+    }
+
+    const toolName = isProgramming ? "generate_programming_assessment" : "generate_mcq_assessment";
+
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-3-flash-preview",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: `Generate the assessment now for: Skill="${skill}", Topic="${topic}", Difficulty="${difficulty}", Mode="${mode}".` },
+        ],
+        tools: [toolSchema],
+        tool_choice: { type: "function", function: { name: toolName } },
+      }),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error("AI gateway error:", response.status, errText);
+      if (response.status === 429) {
+        return new Response(JSON.stringify({ error: "Rate limit exceeded. Please try again later." }), {
+          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (response.status === 402) {
+        return new Response(JSON.stringify({ error: "AI credits exhausted. Please add credits." }), {
+          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      throw new Error(`AI gateway error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+    if (!toolCall) throw new Error("No tool call in AI response");
+
+    const assessment = JSON.parse(toolCall.function.arguments);
+
+    return new Response(JSON.stringify({
+      type: isProgramming ? "programming" : "mcq",
+      mode,
+      skill,
+      topic,
+      difficulty,
+      assessment,
+    }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  } catch (e) {
+    console.error("Assessment error:", e);
+    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+});
