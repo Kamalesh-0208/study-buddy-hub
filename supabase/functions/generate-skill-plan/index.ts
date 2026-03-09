@@ -80,7 +80,7 @@ Generate ALL sections:
 20. SKILL FUTURE: trends, why_stays_relevant, growth_areas
 21. STUDENT ADVICE: practical tips for consistency, overcoming difficulty, effective practice`;
 
-    // Call 3: Extended mastery content (exercises, quiz, routines, progress)
+    // Call 3: Extended mastery content (exercises, quiz, routines, progress, NEW sections)
     const extendedPrompt = `You are an AI Student Learning Coach. For the skill "${skill_name}"${specific_topic ? ` (focus: ${specific_topic})` : ""}, generate extended learning content for a ${experience_level} student.
 
 Generate ALL of the following:
@@ -94,7 +94,12 @@ Generate ALL of the following:
 8. MASTERY INDICATORS: Clear signs of skill mastery
 9. RELATED SKILLS: 5 skills to learn next with connection_to_current
 10. SKILL FUTURE: emerging trends, why it stays relevant, growth areas
-11. STUDENT ADVICE: Tips for consistency, overcoming difficulty, effective practice`;
+11. STUDENT ADVICE: Tips for consistency, overcoming difficulty, effective practice
+12. STUDENT LEVELS: Define what beginner, intermediate, advanced students typically know BEFORE learning this skill. For each level, provide a description and a list of what_they_know.
+13. DAILY TASK GENERATOR: Create a 14-day plan. For each day (day 1-14), provide: concept_to_study, practice_task, exercise, reflection_or_revision.
+14. WEEKLY REVISION SYSTEM: Provide a weekly revision strategy with 5-7 revision_steps (each with step name and description), plus revision_tips array.
+15. GAMIFICATION SYSTEM: Create a gamified motivation system with xp_rules (action + xp_earned), skill_levels (level_name + xp_required), achievement_badges (badge_name + how_to_earn), and streak_rules (streak_days + reward).
+16. AI TUTOR EXPLANATIONS: Pick 5 key concepts students struggle with most for this skill. For each, provide concept_name, simple_explanation (as if teaching a total beginner), and a concrete example.`;
 
     const aiHeaders = {
       Authorization: `Bearer ${LOVABLE_API_KEY}`,
