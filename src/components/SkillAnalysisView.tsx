@@ -42,11 +42,12 @@ const SectionCard = ({ icon: Icon, title, children }: { icon: any; title: string
 );
 
 const SkillAnalysisView = ({ analysis, skillName }: SkillAnalysisProps) => {
+  const [quizAnswers, setQuizAnswers] = useState<Record<number, number>>({});
+  const [showQuizResults, setShowQuizResults] = useState(false);
+
   if (!analysis) return null;
 
   const d = analysis.difficulty;
-  const [quizAnswers, setQuizAnswers] = useState<Record<number, number>>({});
-  const [showQuizResults, setShowQuizResults] = useState(false);
 
   return (
     <Tabs defaultValue="overview" className="mt-3">
