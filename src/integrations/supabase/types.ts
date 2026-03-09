@@ -44,6 +44,44 @@ export type Database = {
         }
         Relationships: []
       }
+      exam_schedule: {
+        Row: {
+          created_at: string
+          exam_date: string
+          exam_name: string | null
+          id: string
+          subject_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          exam_date: string
+          exam_name?: string | null
+          id?: string
+          subject_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          exam_date?: string
+          exam_name?: string | null
+          id?: string
+          subject_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exam_schedule_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       focus_activity: {
         Row: {
           created_at: string
@@ -224,6 +262,53 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      readiness_scores: {
+        Row: {
+          calculated_at: string
+          consistency_component: number | null
+          focus_component: number | null
+          id: string
+          readiness_score: number
+          revision_component: number | null
+          study_hours_component: number | null
+          subject_id: string | null
+          task_component: number | null
+          user_id: string
+        }
+        Insert: {
+          calculated_at?: string
+          consistency_component?: number | null
+          focus_component?: number | null
+          id?: string
+          readiness_score?: number
+          revision_component?: number | null
+          study_hours_component?: number | null
+          subject_id?: string | null
+          task_component?: number | null
+          user_id: string
+        }
+        Update: {
+          calculated_at?: string
+          consistency_component?: number | null
+          focus_component?: number | null
+          id?: string
+          readiness_score?: number
+          revision_component?: number | null
+          study_hours_component?: number | null
+          subject_id?: string | null
+          task_component?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "readiness_scores_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       study_materials: {
         Row: {
@@ -489,6 +574,47 @@ export type Database = {
             columns: ["achievement_id"]
             isOneToOne: false
             referencedRelation: "achievements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      weak_topics: {
+        Row: {
+          detected_at: string
+          id: string
+          reason: string | null
+          recommendation: string | null
+          subject_id: string | null
+          topic_name: string
+          user_id: string
+          weakness_score: number
+        }
+        Insert: {
+          detected_at?: string
+          id?: string
+          reason?: string | null
+          recommendation?: string | null
+          subject_id?: string | null
+          topic_name: string
+          user_id: string
+          weakness_score?: number
+        }
+        Update: {
+          detected_at?: string
+          id?: string
+          reason?: string | null
+          recommendation?: string | null
+          subject_id?: string | null
+          topic_name?: string
+          user_id?: string
+          weakness_score?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weak_topics_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
             referencedColumns: ["id"]
           },
         ]
