@@ -1,9 +1,11 @@
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ExternalLink, AlertTriangle, BookOpen, Layers, Rocket, Target,
-  Clock, Wrench, Lightbulb, GitBranch,
+  Clock, Wrench, Lightbulb, GitBranch, Dumbbell, HelpCircle,
+  CheckCircle2, TrendingUp, GraduationCap, Brain, Route, ListChecks,
 } from "lucide-react";
 
 interface SkillAnalysisProps {
@@ -30,50 +32,66 @@ const ProjectCard = ({ project, level }: { project: any; level: string }) => (
   </div>
 );
 
+const SectionCard = ({ icon: Icon, title, children }: { icon: any; title: string; children: React.ReactNode }) => (
+  <div className="rounded-lg border border-border/40 p-3 bg-secondary/10">
+    <h4 className="font-semibold text-foreground mb-1.5 flex items-center gap-1 text-xs">
+      <Icon className="h-3.5 w-3.5 text-primary" /> {title}
+    </h4>
+    {children}
+  </div>
+);
+
 const SkillAnalysisView = ({ analysis, skillName }: SkillAnalysisProps) => {
   if (!analysis) return null;
 
   const d = analysis.difficulty;
+  const [quizAnswers, setQuizAnswers] = useState<Record<number, number>>({});
+  const [showQuizResults, setShowQuizResults] = useState(false);
 
   return (
     <Tabs defaultValue="overview" className="mt-3">
-      <TabsList className="h-8 w-full flex-wrap justify-start gap-0.5">
+      <TabsList className="h-auto w-full flex-wrap justify-start gap-0.5 bg-muted/50 p-1">
         <TabsTrigger value="overview" className="text-[10px] px-2 py-1 h-6">Overview</TabsTrigger>
         <TabsTrigger value="difficulty" className="text-[10px] px-2 py-1 h-6">Difficulty</TabsTrigger>
-        <TabsTrigger value="stages" className="text-[10px] px-2 py-1 h-6">Roadmap</TabsTrigger>
+        <TabsTrigger value="roadmap" className="text-[10px] px-2 py-1 h-6">Roadmap</TabsTrigger>
         <TabsTrigger value="skill-tree" className="text-[10px] px-2 py-1 h-6">Skill Tree</TabsTrigger>
+        <TabsTrigger value="plans" className="text-[10px] px-2 py-1 h-6">Learning Plans</TabsTrigger>
+        <TabsTrigger value="study" className="text-[10px] px-2 py-1 h-6">Study System</TabsTrigger>
+        <TabsTrigger value="exercises" className="text-[10px] px-2 py-1 h-6">Exercises</TabsTrigger>
+        <TabsTrigger value="quiz" className="text-[10px] px-2 py-1 h-6">Quiz</TabsTrigger>
         <TabsTrigger value="projects" className="text-[10px] px-2 py-1 h-6">Projects</TabsTrigger>
         <TabsTrigger value="tools" className="text-[10px] px-2 py-1 h-6">Tools</TabsTrigger>
         <TabsTrigger value="resources" className="text-[10px] px-2 py-1 h-6">Resources</TabsTrigger>
         <TabsTrigger value="mistakes" className="text-[10px] px-2 py-1 h-6">Mistakes</TabsTrigger>
-        <TabsTrigger value="tips" className="text-[10px] px-2 py-1 h-6">Study Tips</TabsTrigger>
+        <TabsTrigger value="progress" className="text-[10px] px-2 py-1 h-6">Progress</TabsTrigger>
       </TabsList>
 
       {/* Overview */}
       <TabsContent value="overview" className="space-y-3">
         {analysis.overview && (
           <div className="space-y-2 text-xs">
-            <div className="rounded-lg border border-border/40 p-3 bg-secondary/10">
-              <h4 className="font-semibold text-foreground mb-1 flex items-center gap-1"><BookOpen className="h-3.5 w-3.5 text-primary" /> What is {skillName}?</h4>
+            <SectionCard icon={BookOpen} title={`What is ${skillName}?`}>
               <p className="text-muted-foreground text-[11px]">{analysis.overview.what_it_is}</p>
-            </div>
-            <div className="rounded-lg border border-border/40 p-3 bg-secondary/10">
-              <h4 className="font-semibold text-foreground mb-1 flex items-center gap-1"><Rocket className="h-3.5 w-3.5 text-primary" /> Why Learn It?</h4>
+            </SectionCard>
+            <SectionCard icon={Rocket} title="Why Learn It?">
               <p className="text-muted-foreground text-[11px]">{analysis.overview.why_useful || analysis.overview.why_valuable}</p>
-            </div>
-            <div className="rounded-lg border border-border/40 p-3 bg-secondary/10">
-              <h4 className="font-semibold text-foreground mb-1 flex items-center gap-1"><Target className="h-3.5 w-3.5 text-primary" /> Where Used</h4>
+            </SectionCard>
+            <SectionCard icon={Target} title="Where Used">
               <p className="text-muted-foreground text-[11px]">{analysis.overview.where_used}</p>
-            </div>
+            </SectionCard>
             {analysis.overview.build_examples?.length > 0 && (
-              <div className="rounded-lg border border-border/40 p-3 bg-secondary/10">
-                <h4 className="font-semibold text-foreground mb-1 flex items-center gap-1">🛠️ What You Can Build</h4>
-                <div className="flex flex-wrap gap-1 mt-1">
-                  {analysis.overview.build_examples.map((ex: string, i: number) => (
-                    <Badge key={i} variant="secondary" className="text-[10px]">{ex}</Badge>
-                  ))}
-                </div>
-              </div>
+              <SectionCard icon={Wrench} title="What You Can Build">
+                <div className="flex flex-wrap gap-1">{analysis.overview.build_examples.map((ex: string, i: number) => (
+                  <Badge key={i} variant="secondary" className="text-[10px]">{ex}</Badge>
+                ))}</div>
+              </SectionCard>
+            )}
+            {analysis.overview.connected_subjects?.length > 0 && (
+              <SectionCard icon={GitBranch} title="Connected Subjects">
+                <div className="flex flex-wrap gap-1">{analysis.overview.connected_subjects.map((s: string, i: number) => (
+                  <Badge key={i} variant="outline" className="text-[10px]">{s}</Badge>
+                ))}</div>
+              </SectionCard>
             )}
           </div>
         )}
@@ -89,10 +107,7 @@ const SkillAnalysisView = ({ analysis, skillName }: SkillAnalysisProps) => {
                       • <span className="font-medium text-foreground">{typeof p === "string" ? p : p.name}</span>
                       {typeof p !== "string" && p.reason && <span className="block pl-3 text-[10px]">{p.reason}</span>}
                     </li>
-                  ))}
-                  {!(analysis.prerequisites.core || analysis.prerequisites.absolute)?.length && (
-                    <li className="text-[11px] text-muted-foreground italic">None required</li>
-                  )}
+                  )) || <li className="text-[11px] text-muted-foreground italic">None required</li>}
                 </ul>
               </div>
               <div className="rounded-lg border border-border/40 p-3 bg-secondary/10">
@@ -109,18 +124,14 @@ const SkillAnalysisView = ({ analysis, skillName }: SkillAnalysisProps) => {
             </div>
           </div>
         )}
-        {analysis.timeline && (
+        {analysis.decomposition?.length > 0 && (
           <div className="space-y-2">
-            <h4 className="text-xs font-semibold text-foreground flex items-center gap-1"><Clock className="h-3.5 w-3.5 text-primary" /> Learning Timeline</h4>
-            <div className="grid gap-2 sm:grid-cols-3">
-              {[
-                { label: "30 Days", value: analysis.timeline.thirty_days },
-                { label: "90 Days", value: analysis.timeline.ninety_days },
-                { label: "6 Months", value: analysis.timeline.six_months },
-              ].map((t) => (
-                <div key={t.label} className="rounded-lg border border-border/40 p-3 bg-secondary/10">
-                  <span className="text-[10px] font-bold text-primary">{t.label}</span>
-                  <p className="text-[11px] text-muted-foreground mt-1">{t.value}</p>
+            <h4 className="text-xs font-semibold text-foreground flex items-center gap-1"><Layers className="h-3.5 w-3.5 text-primary" /> Skill Decomposition</h4>
+            <div className="space-y-1.5">
+              {analysis.decomposition.map((c: any, i: number) => (
+                <div key={i} className="rounded-lg border border-border/40 p-2.5 bg-secondary/10">
+                  <span className="text-[11px] font-semibold text-foreground">{c.name}</span>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">{c.description}</p>
                 </div>
               ))}
             </div>
@@ -144,16 +155,18 @@ const SkillAnalysisView = ({ analysis, skillName }: SkillAnalysisProps) => {
             </div>
             <div className="space-y-2">
               <DifficultyBar label="Concept Difficulty" value={d.concept_difficulty ?? d.conceptual_difficulty} />
-              <DifficultyBar label="Technical Difficulty" value={d.technical_difficulty ?? d.technical_complexity} />
+              <DifficultyBar label="Technical Complexity" value={d.technical_complexity ?? d.technical_difficulty} />
               <DifficultyBar label="Learning Curve" value={d.learning_curve} />
+              <DifficultyBar label="Practice Requirement" value={d.practice_requirement} />
               <DifficultyBar label="Time to Learn" value={d.time_to_learn ?? d.time_to_master} />
+              <DifficultyBar label="Tool Complexity" value={d.tool_complexity} />
             </div>
           </>
         )}
       </TabsContent>
 
-      {/* Stages / Roadmap */}
-      <TabsContent value="stages" className="space-y-2">
+      {/* Roadmap */}
+      <TabsContent value="roadmap" className="space-y-2">
         {analysis.stages?.map((stage: any, i: number) => (
           <div key={i} className="rounded-lg border border-border/40 p-3 bg-secondary/10">
             <h4 className="text-xs font-bold text-foreground flex items-center gap-1">
@@ -175,10 +188,8 @@ const SkillAnalysisView = ({ analysis, skillName }: SkillAnalysisProps) => {
                 <ul className="mt-0.5">{(stage.practice_exercises || stage.exercises).map((e: string, j: number) => <li key={j} className="text-[11px] text-muted-foreground">• {e}</li>)}</ul>
               </div>
             )}
-            {stage.tools?.length > 0 && (
-              <div className="flex flex-wrap gap-1 mt-2">
-                {stage.tools.map((t: string, j: number) => <Badge key={j} variant="outline" className="text-[9px]">{t}</Badge>)}
-              </div>
+            {stage.study_method && (
+              <p className="text-[10px] text-primary mt-2">📖 Study method: {stage.study_method}</p>
             )}
           </div>
         ))}
@@ -191,12 +202,188 @@ const SkillAnalysisView = ({ analysis, skillName }: SkillAnalysisProps) => {
             <h4 className="text-xs font-bold text-foreground flex items-center gap-1 mb-3">
               <GitBranch className="h-3.5 w-3.5 text-primary" /> Skill Tree: {skillName}
             </h4>
-            <pre className="text-[11px] text-foreground font-mono whitespace-pre-wrap leading-relaxed">
-              {analysis.skill_tree}
-            </pre>
+            <pre className="text-[11px] text-foreground font-mono whitespace-pre-wrap leading-relaxed">{analysis.skill_tree}</pre>
           </div>
         ) : (
           <p className="text-xs text-muted-foreground italic">No skill tree available.</p>
+        )}
+      </TabsContent>
+
+      {/* Learning Plans */}
+      <TabsContent value="plans" className="space-y-3">
+        {analysis.adaptive_paths && (
+          <div className="space-y-2">
+            <h4 className="text-xs font-semibold text-foreground flex items-center gap-1"><Route className="h-3.5 w-3.5 text-primary" /> Adaptive Learning Paths</h4>
+            {[
+              { label: "🐢 Slow Learner", value: analysis.adaptive_paths.slow_learner },
+              { label: "🚶 Average Learner", value: analysis.adaptive_paths.average_learner },
+              { label: "🏃 Fast Learner", value: analysis.adaptive_paths.fast_learner },
+            ].map((p) => (
+              <div key={p.label} className="rounded-lg border border-border/40 p-3 bg-secondary/10">
+                <span className="text-[10px] font-bold text-foreground">{p.label}</span>
+                <p className="text-[11px] text-muted-foreground mt-1">{p.value}</p>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="space-y-2">
+          <h4 className="text-xs font-semibold text-foreground flex items-center gap-1"><Clock className="h-3.5 w-3.5 text-primary" /> Learning Timelines</h4>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {[
+              { label: "30 Days", value: analysis.extended_timeline?.thirty_days || analysis.timeline?.thirty_days },
+              { label: "60 Days", value: analysis.extended_timeline?.sixty_days },
+              { label: "90 Days", value: analysis.extended_timeline?.ninety_days || analysis.timeline?.ninety_days },
+              { label: "180 Days", value: analysis.extended_timeline?.one_eighty_days || analysis.timeline?.six_months },
+            ].filter(t => t.value).map((t) => (
+              <div key={t.label} className="rounded-lg border border-border/40 p-3 bg-secondary/10">
+                <span className="text-[10px] font-bold text-primary">{t.label}</span>
+                <p className="text-[11px] text-muted-foreground mt-1">{t.value}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </TabsContent>
+
+      {/* Study System */}
+      <TabsContent value="study" className="space-y-3">
+        {analysis.study_routine?.length > 0 && (
+          <div className="space-y-2">
+            <h4 className="text-xs font-semibold text-foreground flex items-center gap-1"><Clock className="h-3.5 w-3.5 text-primary" /> Daily Study Routine</h4>
+            <div className="space-y-1.5">
+              {analysis.study_routine.map((r: any, i: number) => (
+                <div key={i} className="flex items-start gap-2 rounded-lg border border-border/40 p-2.5 bg-secondary/10">
+                  <Badge variant="outline" className="text-[9px] shrink-0">{r.duration_minutes}m</Badge>
+                  <div>
+                    <span className="text-[11px] font-semibold text-foreground">{r.activity}</span>
+                    <p className="text-[10px] text-muted-foreground">{r.description}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {analysis.memory_techniques?.length > 0 && (
+          <div className="space-y-2">
+            <h4 className="text-xs font-semibold text-foreground flex items-center gap-1"><Brain className="h-3.5 w-3.5 text-primary" /> Memory & Study Techniques</h4>
+            {analysis.memory_techniques.map((t: any, i: number) => (
+              <div key={i} className="rounded-lg border border-border/40 p-3 bg-secondary/10">
+                <span className="text-xs font-semibold text-foreground">{t.technique}</span>
+                <p className="text-[11px] text-muted-foreground mt-0.5">{t.how_to_apply}</p>
+              </div>
+            ))}
+          </div>
+        )}
+        {analysis.study_tips?.length > 0 && (
+          <div className="space-y-2">
+            <h4 className="text-xs font-semibold text-foreground flex items-center gap-1"><Lightbulb className="h-3.5 w-3.5 text-primary" /> Study Tips</h4>
+            {analysis.study_tips.map((t: any, i: number) => (
+              <div key={i} className="rounded-lg border border-border/40 p-3 bg-secondary/10">
+                <span className="text-xs font-semibold text-foreground">{t.tip}</span>
+                <p className="text-[11px] text-muted-foreground mt-0.5">{t.explanation}</p>
+              </div>
+            ))}
+          </div>
+        )}
+        {analysis.student_advice?.length > 0 && (
+          <div className="space-y-2">
+            <h4 className="text-xs font-semibold text-foreground flex items-center gap-1"><GraduationCap className="h-3.5 w-3.5 text-primary" /> Student Advice</h4>
+            {analysis.student_advice.map((a: any, i: number) => (
+              <div key={i} className="rounded-lg border border-border/40 p-3 bg-secondary/10">
+                <span className="text-xs font-semibold text-foreground">{a.advice}</span>
+                <p className="text-[11px] text-muted-foreground mt-0.5">{a.detail}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </TabsContent>
+
+      {/* Exercises */}
+      <TabsContent value="exercises" className="space-y-3">
+        {analysis.exercises ? (
+          <>
+            {[
+              { label: "Beginner Exercises", items: analysis.exercises.beginner, color: "text-green-500" },
+              { label: "Intermediate Exercises", items: analysis.exercises.intermediate, color: "text-yellow-500" },
+              { label: "Advanced Challenges", items: analysis.exercises.advanced, color: "text-red-500" },
+            ].map(({ label, items, color }) => items?.length > 0 && (
+              <div key={label} className="space-y-1.5">
+                <h4 className={`text-xs font-semibold ${color}`}><Dumbbell className="inline h-3.5 w-3.5 mr-1" />{label}</h4>
+                {items.map((ex: any, i: number) => (
+                  <div key={i} className="rounded-lg border border-border/40 p-2.5 bg-secondary/10">
+                    <span className="text-[11px] font-semibold text-foreground">{ex.title}</span>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">{ex.description}</p>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </>
+        ) : (
+          <p className="text-xs text-muted-foreground italic">No exercises available.</p>
+        )}
+      </TabsContent>
+
+      {/* Quiz */}
+      <TabsContent value="quiz" className="space-y-3">
+        {analysis.quiz?.length > 0 ? (
+          <>
+            <div className="space-y-3">
+              {analysis.quiz.map((q: any, qi: number) => (
+                <div key={qi} className="rounded-lg border border-border/40 p-3 bg-secondary/10">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Badge variant="outline" className="text-[9px]">{q.level}</Badge>
+                    <span className="text-[11px] font-semibold text-foreground flex items-center gap-1">
+                      <HelpCircle className="h-3 w-3 text-primary" /> Q{qi + 1}: {q.question}
+                    </span>
+                  </div>
+                  <div className="space-y-1 pl-2">
+                    {q.options?.map((opt: string, oi: number) => {
+                      const selected = quizAnswers[qi] === oi;
+                      const isCorrect = oi === q.correct_answer;
+                      let optClass = "border-border/30 bg-background/50 hover:bg-secondary/30 cursor-pointer";
+                      if (showQuizResults && selected && isCorrect) optClass = "border-green-500/50 bg-green-500/10";
+                      else if (showQuizResults && selected && !isCorrect) optClass = "border-destructive/50 bg-destructive/10";
+                      else if (showQuizResults && isCorrect) optClass = "border-green-500/30 bg-green-500/5";
+                      else if (selected) optClass = "border-primary/50 bg-primary/10";
+
+                      return (
+                        <div
+                          key={oi}
+                          onClick={() => !showQuizResults && setQuizAnswers(prev => ({ ...prev, [qi]: oi }))}
+                          className={`rounded-md border p-2 text-[11px] text-foreground transition-colors ${optClass}`}
+                        >
+                          {String.fromCharCode(65 + oi)}. {opt}
+                          {showQuizResults && isCorrect && <CheckCircle2 className="inline h-3 w-3 ml-1 text-green-500" />}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowQuizResults(true)}
+                className="text-xs px-3 py-1.5 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+              >
+                Check Answers
+              </button>
+              {showQuizResults && (
+                <>
+                  <span className="text-xs text-muted-foreground self-center">
+                    Score: {analysis.quiz.filter((_: any, i: number) => quizAnswers[i] === analysis.quiz[i].correct_answer).length}/{analysis.quiz.length}
+                  </span>
+                  <button
+                    onClick={() => { setQuizAnswers({}); setShowQuizResults(false); }}
+                    className="text-xs px-3 py-1.5 rounded-md border border-border hover:bg-secondary/30 transition-colors"
+                  >
+                    Retry
+                  </button>
+                </>
+              )}
+            </div>
+          </>
+        ) : (
+          <p className="text-xs text-muted-foreground italic">No quiz available.</p>
         )}
       </TabsContent>
 
@@ -214,33 +401,24 @@ const SkillAnalysisView = ({ analysis, skillName }: SkillAnalysisProps) => {
       {/* Tools */}
       <TabsContent value="tools" className="space-y-3">
         {analysis.tools ? (
-          <div className="grid gap-2 sm:grid-cols-2">
-            <div className="rounded-lg border border-border/40 p-3 bg-secondary/10">
-              <h4 className="text-[10px] font-bold text-foreground flex items-center gap-1 mb-2">
-                <Wrench className="h-3 w-3 text-primary" /> Beginner Tools
-              </h4>
-              <ul className="space-y-1.5">
-                {analysis.tools.beginner?.map((t: any, i: number) => (
-                  <li key={i} className="text-[11px]">
-                    <span className="font-medium text-foreground">{t.name}</span>
-                    <span className="text-muted-foreground block text-[10px]">{t.used_for}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div className="rounded-lg border border-border/40 p-3 bg-secondary/10">
-              <h4 className="text-[10px] font-bold text-foreground flex items-center gap-1 mb-2">
-                <Wrench className="h-3 w-3 text-primary" /> Advanced Tools
-              </h4>
-              <ul className="space-y-1.5">
-                {analysis.tools.advanced?.map((t: any, i: number) => (
-                  <li key={i} className="text-[11px]">
-                    <span className="font-medium text-foreground">{t.name}</span>
-                    <span className="text-muted-foreground block text-[10px]">{t.used_for}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {[
+              { label: "🟢 Beginner Tools", items: analysis.tools.beginner },
+              { label: "🔵 Professional Tools", items: analysis.tools.professional || analysis.tools.advanced },
+              { label: "⚪ Optional Tools", items: analysis.tools.optional },
+            ].map(({ label, items }) => items?.length > 0 && (
+              <div key={label} className="rounded-lg border border-border/40 p-3 bg-secondary/10">
+                <h4 className="text-[10px] font-bold text-foreground mb-2">{label}</h4>
+                <ul className="space-y-1.5">
+                  {items.map((t: any, i: number) => (
+                    <li key={i} className="text-[11px]">
+                      <span className="font-medium text-foreground">{t.name}</span>
+                      <span className="text-muted-foreground block text-[10px]">{t.used_for}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
           </div>
         ) : (
           <p className="text-xs text-muted-foreground italic">No tools data available.</p>
@@ -295,22 +473,68 @@ const SkillAnalysisView = ({ analysis, skillName }: SkillAnalysisProps) => {
         ))}
       </TabsContent>
 
-      {/* Study Tips */}
-      <TabsContent value="tips" className="space-y-2">
-        {analysis.study_tips?.length > 0 ? (
-          analysis.study_tips.map((t: any, i: number) => (
-            <div key={i} className="rounded-lg border border-border/40 p-3 bg-secondary/10">
-              <div className="flex items-start gap-2">
-                <Lightbulb className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
-                <div>
-                  <span className="text-xs font-semibold text-foreground">{t.tip}</span>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">{t.explanation}</p>
+      {/* Progress & Mastery */}
+      <TabsContent value="progress" className="space-y-3">
+        {analysis.progress_checklist?.length > 0 && (
+          <div className="space-y-2">
+            <h4 className="text-xs font-semibold text-foreground flex items-center gap-1"><ListChecks className="h-3.5 w-3.5 text-primary" /> Progress Checklist</h4>
+            <div className="space-y-1">
+              {analysis.progress_checklist.map((c: any, i: number) => (
+                <div key={i} className="flex items-center gap-2 rounded-md border border-border/30 p-2 bg-secondary/10">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <div className="flex-1">
+                    <span className="text-[11px] text-foreground">{c.checkpoint}</span>
+                    <Badge variant="outline" className="text-[8px] ml-1.5">{c.level}</Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {analysis.mastery_indicators?.length > 0 && (
+          <SectionCard icon={TrendingUp} title="Mastery Indicators">
+            <ul className="space-y-0.5">
+              {analysis.mastery_indicators.map((m: string, i: number) => (
+                <li key={i} className="text-[11px] text-muted-foreground flex items-start gap-1.5">
+                  <span className="text-primary">✓</span> {m}
+                </li>
+              ))}
+            </ul>
+          </SectionCard>
+        )}
+        {analysis.related_skills?.length > 0 && (
+          <div className="space-y-2">
+            <h4 className="text-xs font-semibold text-foreground flex items-center gap-1"><GitBranch className="h-3.5 w-3.5 text-primary" /> Learn Next</h4>
+            <div className="grid gap-1.5 sm:grid-cols-2">
+              {analysis.related_skills.map((s: any, i: number) => (
+                <div key={i} className="rounded-lg border border-border/40 p-2.5 bg-secondary/10">
+                  <span className="text-[11px] font-semibold text-foreground">{s.name}</span>
+                  <p className="text-[10px] text-muted-foreground">{s.connection}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {analysis.skill_future && (
+          <SectionCard icon={Rocket} title="Future of This Skill">
+            <p className="text-[11px] text-muted-foreground mb-1.5">{analysis.skill_future.why_stays_relevant}</p>
+            {analysis.skill_future.trends?.length > 0 && (
+              <div className="mb-1">
+                <span className="text-[10px] font-semibold text-foreground">Trends:</span>
+                <div className="flex flex-wrap gap-1 mt-0.5">
+                  {analysis.skill_future.trends.map((t: string, i: number) => <Badge key={i} variant="secondary" className="text-[9px]">{t}</Badge>)}
                 </div>
               </div>
-            </div>
-          ))
-        ) : (
-          <p className="text-xs text-muted-foreground italic">No study tips available.</p>
+            )}
+            {analysis.skill_future.growth_areas?.length > 0 && (
+              <div>
+                <span className="text-[10px] font-semibold text-foreground">Growth Areas:</span>
+                <div className="flex flex-wrap gap-1 mt-0.5">
+                  {analysis.skill_future.growth_areas.map((g: string, i: number) => <Badge key={i} variant="outline" className="text-[9px]">{g}</Badge>)}
+                </div>
+              </div>
+            )}
+          </SectionCard>
         )}
       </TabsContent>
     </Tabs>
