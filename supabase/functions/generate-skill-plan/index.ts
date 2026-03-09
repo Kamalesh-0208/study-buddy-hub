@@ -25,7 +25,6 @@ serve(async (req) => {
     if (authError || !user) throw new Error("Unauthorized");
 
     const { skill_name, specific_topic, daily_hours = 2, target_days = 7, experience_level = "beginner" } = await req.json();
-
     if (!skill_name) throw new Error("Skill name is required");
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -34,7 +33,8 @@ serve(async (req) => {
     const topicContext = specific_topic ? `Focus specifically on: ${specific_topic}` : "Cover all essential topics";
     const totalHours = daily_hours * target_days;
 
-    const prompt = `You are a curriculum designer. Create a complete learning plan for the skill "${skill_name}".
+    // Call 1: Generate learning topics & resources
+    const topicsPrompt = `You are a curriculum designer. Create a complete learning plan for the skill "${skill_name}".
 ${topicContext}
 
 STUDENT CONTEXT:
@@ -53,91 +53,271 @@ REQUIREMENTS:
 
 Provide real, working URLs for resources (use well-known sites like MDN, W3Schools, GeeksforGeeks, tutorialspoint, youtube.com, docs.python.org, cprogramming.com, etc.)`;
 
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: "You are a curriculum design AI. Always respond with the requested tool call." },
-          { role: "user", content: prompt },
-        ],
-        tools: [{
-          type: "function",
-          function: {
-            name: "create_skill_plan",
-            description: "Create a structured skill learning plan with topics, resources, and schedule",
-            parameters: {
-              type: "object",
-              properties: {
-                topics: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    properties: {
-                      topic_name: { type: "string" },
-                      description: { type: "string" },
-                      estimated_minutes: { type: "integer", minimum: 10, maximum: 180 },
-                      scheduled_day: { type: "integer", minimum: 1 },
-                      resources: {
-                        type: "array",
-                        items: {
-                          type: "object",
-                          properties: {
-                            title: { type: "string" },
-                            url: { type: "string" },
-                            resource_type: { type: "string", enum: ["article", "video", "documentation", "exercise", "tutorial"] },
+    // Call 2: Generate comprehensive skill analysis
+    const analysisPrompt = `You are a Career Architect and Skill Analyst. Analyze the skill "${skill_name}"${specific_topic ? ` (focus: ${specific_topic})` : ""} for a ${experience_level} learner.
+
+Produce a comprehensive analysis covering ALL of the following sections:
+
+1. SKILL OVERVIEW: What it is, where used, why valuable, career opportunities
+2. DIFFICULTY ANALYSIS: Rate 1-10 for conceptual_difficulty, technical_complexity, learning_curve, time_to_master, job_market_competition. Provide overall_score, classification (Beginner/Intermediate/Advanced), estimated_weeks
+3. PREREQUISITES: absolute_prerequisites (required before learning) and helpful_skills (supporting)
+4. LEARNING STAGES: 6 stages (Foundations, Core Concepts, Practical Implementation, Advanced Techniques, Real-World Applications, Professional Level) - each with topics, key_concepts, tools, exercises
+5. PROJECTS: 3 beginner, 3 intermediate, 3 advanced, 1 portfolio project - each with name, description, what_it_teaches
+6. TIMELINE: 30_day, 90_day, 6_month milestones
+7. RESOURCES: courses, books, youtube_channels, websites, practice_platforms (name + url)
+8. COMMON MISTAKES: list of mistakes with how_to_avoid
+9. CAREER PATHS: jobs, freelance, startup, earn_online opportunities
+10. SKILL COMPARISON: Compare with 3 related skills on ease, demand, pay`;
+
+    const aiHeaders = {
+      Authorization: `Bearer ${LOVABLE_API_KEY}`,
+      "Content-Type": "application/json",
+    };
+
+    // Run both AI calls in parallel
+    const [topicsResponse, analysisResponse] = await Promise.all([
+      fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: aiHeaders,
+        body: JSON.stringify({
+          model: "google/gemini-3-flash-preview",
+          messages: [
+            { role: "system", content: "You are a curriculum design AI. Always respond with the requested tool call." },
+            { role: "user", content: topicsPrompt },
+          ],
+          tools: [{
+            type: "function",
+            function: {
+              name: "create_skill_plan",
+              description: "Create a structured skill learning plan with topics, resources, and schedule",
+              parameters: {
+                type: "object",
+                properties: {
+                  topics: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        topic_name: { type: "string" },
+                        description: { type: "string" },
+                        estimated_minutes: { type: "integer", minimum: 10, maximum: 180 },
+                        scheduled_day: { type: "integer", minimum: 1 },
+                        resources: {
+                          type: "array",
+                          items: {
+                            type: "object",
+                            properties: {
+                              title: { type: "string" },
+                              url: { type: "string" },
+                              resource_type: { type: "string", enum: ["article", "video", "documentation", "exercise", "tutorial"] },
+                            },
+                            required: ["title", "url", "resource_type"],
+                            additionalProperties: false,
                           },
-                          required: ["title", "url", "resource_type"],
-                          additionalProperties: false,
                         },
                       },
+                      required: ["topic_name", "description", "estimated_minutes", "scheduled_day", "resources"],
+                      additionalProperties: false,
                     },
-                    required: ["topic_name", "description", "estimated_minutes", "scheduled_day", "resources"],
+                  },
+                  total_estimated_hours: { type: "number" },
+                },
+                required: ["topics", "total_estimated_hours"],
+                additionalProperties: false,
+              },
+            },
+          }],
+          tool_choice: { type: "function", function: { name: "create_skill_plan" } },
+        }),
+      }),
+      fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: aiHeaders,
+        body: JSON.stringify({
+          model: "google/gemini-3-flash-preview",
+          messages: [
+            { role: "system", content: "You are a career architect and skill analyst. Always respond with the requested tool call." },
+            { role: "user", content: analysisPrompt },
+          ],
+          tools: [{
+            type: "function",
+            function: {
+              name: "skill_analysis",
+              description: "Comprehensive skill analysis with difficulty, prerequisites, projects, career paths",
+              parameters: {
+                type: "object",
+                properties: {
+                  overview: {
+                    type: "object",
+                    properties: {
+                      what_it_is: { type: "string" },
+                      where_used: { type: "string" },
+                      why_valuable: { type: "string" },
+                      career_opportunities: { type: "array", items: { type: "string" } },
+                    },
+                    required: ["what_it_is", "where_used", "why_valuable", "career_opportunities"],
                     additionalProperties: false,
                   },
+                  difficulty: {
+                    type: "object",
+                    properties: {
+                      conceptual_difficulty: { type: "integer", minimum: 1, maximum: 10 },
+                      technical_complexity: { type: "integer", minimum: 1, maximum: 10 },
+                      learning_curve: { type: "integer", minimum: 1, maximum: 10 },
+                      time_to_master: { type: "integer", minimum: 1, maximum: 10 },
+                      job_market_competition: { type: "integer", minimum: 1, maximum: 10 },
+                      overall_score: { type: "number" },
+                      classification: { type: "string" },
+                      estimated_weeks: { type: "integer" },
+                    },
+                    required: ["conceptual_difficulty", "technical_complexity", "learning_curve", "time_to_master", "job_market_competition", "overall_score", "classification", "estimated_weeks"],
+                    additionalProperties: false,
+                  },
+                  prerequisites: {
+                    type: "object",
+                    properties: {
+                      absolute: { type: "array", items: { type: "string" } },
+                      helpful: { type: "array", items: { type: "string" } },
+                    },
+                    required: ["absolute", "helpful"],
+                    additionalProperties: false,
+                  },
+                  stages: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        name: { type: "string" },
+                        topics: { type: "array", items: { type: "string" } },
+                        key_concepts: { type: "array", items: { type: "string" } },
+                        tools: { type: "array", items: { type: "string" } },
+                        exercises: { type: "array", items: { type: "string" } },
+                      },
+                      required: ["name", "topics", "key_concepts", "tools", "exercises"],
+                      additionalProperties: false,
+                    },
+                  },
+                  projects: {
+                    type: "object",
+                    properties: {
+                      beginner: { type: "array", items: { type: "object", properties: { name: { type: "string" }, description: { type: "string" }, teaches: { type: "string" } }, required: ["name", "description", "teaches"], additionalProperties: false } },
+                      intermediate: { type: "array", items: { type: "object", properties: { name: { type: "string" }, description: { type: "string" }, teaches: { type: "string" } }, required: ["name", "description", "teaches"], additionalProperties: false } },
+                      advanced: { type: "array", items: { type: "object", properties: { name: { type: "string" }, description: { type: "string" }, teaches: { type: "string" } }, required: ["name", "description", "teaches"], additionalProperties: false } },
+                      portfolio: { type: "object", properties: { name: { type: "string" }, description: { type: "string" }, teaches: { type: "string" } }, required: ["name", "description", "teaches"], additionalProperties: false },
+                    },
+                    required: ["beginner", "intermediate", "advanced", "portfolio"],
+                    additionalProperties: false,
+                  },
+                  timeline: {
+                    type: "object",
+                    properties: {
+                      thirty_days: { type: "string" },
+                      ninety_days: { type: "string" },
+                      six_months: { type: "string" },
+                    },
+                    required: ["thirty_days", "ninety_days", "six_months"],
+                    additionalProperties: false,
+                  },
+                  resources: {
+                    type: "object",
+                    properties: {
+                      courses: { type: "array", items: { type: "object", properties: { name: { type: "string" }, url: { type: "string" } }, required: ["name", "url"], additionalProperties: false } },
+                      books: { type: "array", items: { type: "string" } },
+                      youtube_channels: { type: "array", items: { type: "object", properties: { name: { type: "string" }, url: { type: "string" } }, required: ["name", "url"], additionalProperties: false } },
+                      websites: { type: "array", items: { type: "object", properties: { name: { type: "string" }, url: { type: "string" } }, required: ["name", "url"], additionalProperties: false } },
+                      practice_platforms: { type: "array", items: { type: "object", properties: { name: { type: "string" }, url: { type: "string" } }, required: ["name", "url"], additionalProperties: false } },
+                    },
+                    required: ["courses", "books", "youtube_channels", "websites", "practice_platforms"],
+                    additionalProperties: false,
+                  },
+                  common_mistakes: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        mistake: { type: "string" },
+                        how_to_avoid: { type: "string" },
+                      },
+                      required: ["mistake", "how_to_avoid"],
+                      additionalProperties: false,
+                    },
+                  },
+                  career_paths: {
+                    type: "object",
+                    properties: {
+                      jobs: { type: "array", items: { type: "string" } },
+                      freelance: { type: "array", items: { type: "string" } },
+                      startup: { type: "array", items: { type: "string" } },
+                      earn_online: { type: "array", items: { type: "string" } },
+                    },
+                    required: ["jobs", "freelance", "startup", "earn_online"],
+                    additionalProperties: false,
+                  },
+                  skill_comparison: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        skill_name: { type: "string" },
+                        easier: { type: "boolean" },
+                        more_in_demand: { type: "boolean" },
+                        pays_more: { type: "boolean" },
+                        notes: { type: "string" },
+                      },
+                      required: ["skill_name", "easier", "more_in_demand", "pays_more", "notes"],
+                      additionalProperties: false,
+                    },
+                  },
                 },
-                total_estimated_hours: { type: "number" },
+                required: ["overview", "difficulty", "prerequisites", "stages", "projects", "timeline", "resources", "common_mistakes", "career_paths", "skill_comparison"],
+                additionalProperties: false,
               },
-              required: ["topics", "total_estimated_hours"],
-              additionalProperties: false,
             },
-          },
-        }],
-        tool_choice: { type: "function", function: { name: "create_skill_plan" } },
+          }],
+          tool_choice: { type: "function", function: { name: "skill_analysis" } },
+        }),
       }),
-    });
+    ]);
 
-    if (!aiResponse.ok) {
-      const status = aiResponse.status;
-      const text = await aiResponse.text();
-      console.error("AI error:", status, text);
-      if (status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limited. Please try again in a moment." }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+    // Handle errors
+    for (const [resp, label] of [[topicsResponse, "topics"], [analysisResponse, "analysis"]] as const) {
+      if (!resp.ok) {
+        const status = resp.status;
+        const text = await resp.text();
+        console.error(`${label} AI error:`, status, text);
+        if (status === 429) {
+          return new Response(JSON.stringify({ error: "Rate limited. Please try again in a moment." }), {
+            status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        if (status === 402) {
+          return new Response(JSON.stringify({ error: "AI credits exhausted." }), {
+            status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        throw new Error(`${label} AI generation failed`);
       }
-      if (status === 402) {
-        return new Response(JSON.stringify({ error: "AI credits exhausted." }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      throw new Error("AI generation failed");
     }
 
-    const aiData = await aiResponse.json();
-    const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
-    if (!toolCall) throw new Error("No plan generated");
+    const [topicsData, analysisData] = await Promise.all([topicsResponse.json(), analysisResponse.json()]);
 
-    const plan = JSON.parse(toolCall.function.arguments);
+    const topicsToolCall = topicsData.choices?.[0]?.message?.tool_calls?.[0];
+    if (!topicsToolCall) throw new Error("No plan generated");
+    const plan = JSON.parse(topicsToolCall.function.arguments);
 
-    // Calculate start date
+    let analysisResult = null;
+    const analysisToolCall = analysisData.choices?.[0]?.message?.tool_calls?.[0];
+    if (analysisToolCall) {
+      try {
+        analysisResult = JSON.parse(analysisToolCall.function.arguments);
+      } catch (e) {
+        console.error("Failed to parse analysis:", e);
+      }
+    }
+
     const startDate = new Date();
 
-    // Insert skill plan
+    // Insert skill plan with analysis_data
     const { data: skillPlan, error: planError } = await supabase
       .from("skill_plans")
       .insert({
@@ -148,6 +328,7 @@ Provide real, working URLs for resources (use well-known sites like MDN, W3Schoo
         daily_hours,
         target_days,
         total_estimated_hours: plan.total_estimated_hours,
+        analysis_data: analysisResult,
       })
       .select()
       .single();
@@ -173,12 +354,8 @@ Provide real, working URLs for resources (use well-known sites like MDN, W3Schoo
         .select()
         .single();
 
-      if (topicError) {
-        console.error("Topic insert error:", topicError);
-        continue;
-      }
+      if (topicError) { console.error("Topic insert error:", topicError); continue; }
 
-      // Insert resources
       if (topic.resources?.length > 0) {
         const resourceRows = topic.resources.map((r: any) => ({
           skill_topic_id: topicData.id,
@@ -191,7 +368,7 @@ Provide real, working URLs for resources (use well-known sites like MDN, W3Schoo
       }
     }
 
-    return new Response(JSON.stringify({ success: true, skill_plan_id: skillPlan.id, plan }), {
+    return new Response(JSON.stringify({ success: true, skill_plan_id: skillPlan.id, plan, analysis: analysisResult }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
