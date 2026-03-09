@@ -281,6 +281,7 @@ const SkillLearningPlanner = () => {
                       <SkillPlanTopics planId={plan.id} planSkillName={plan.skill_name} />
                     )}
                   </motion.div>
+                )}
               </AnimatePresence>
             </div>
           ))}
