@@ -15,6 +15,7 @@ const navItems = [
   { icon: BarChart3, label: "Analytics", path: "/analytics" },
   { icon: Trophy, label: "Goals", path: "/goals" },
   { icon: Medal, label: "Leaderboard", path: "/leaderboard" },
+  { icon: Brain, label: "AI Planner", path: "/planner" },
 ];
 
 const bottomItems = [
