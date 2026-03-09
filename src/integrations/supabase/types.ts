@@ -366,6 +366,136 @@ export type Database = {
           },
         ]
       }
+      skill_plans: {
+        Row: {
+          created_at: string
+          daily_hours: number
+          experience_level: string | null
+          id: string
+          progress_percentage: number | null
+          skill_name: string
+          specific_topic: string | null
+          status: string | null
+          target_days: number
+          total_estimated_hours: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          daily_hours?: number
+          experience_level?: string | null
+          id?: string
+          progress_percentage?: number | null
+          skill_name: string
+          specific_topic?: string | null
+          status?: string | null
+          target_days?: number
+          total_estimated_hours?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          daily_hours?: number
+          experience_level?: string | null
+          id?: string
+          progress_percentage?: number | null
+          skill_name?: string
+          specific_topic?: string | null
+          status?: string | null
+          target_days?: number
+          total_estimated_hours?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      skill_resources: {
+        Row: {
+          created_at: string
+          id: string
+          resource_type: string | null
+          skill_topic_id: string
+          title: string
+          url: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          resource_type?: string | null
+          skill_topic_id: string
+          title: string
+          url: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          resource_type?: string | null
+          skill_topic_id?: string
+          title?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "skill_resources_skill_topic_id_fkey"
+            columns: ["skill_topic_id"]
+            isOneToOne: false
+            referencedRelation: "skill_topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      skill_topics: {
+        Row: {
+          completed: boolean | null
+          completed_at: string | null
+          created_at: string
+          description: string | null
+          estimated_minutes: number
+          id: string
+          scheduled_date: string | null
+          skill_plan_id: string
+          sort_order: number
+          time_spent_minutes: number | null
+          topic_name: string
+        }
+        Insert: {
+          completed?: boolean | null
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          estimated_minutes?: number
+          id?: string
+          scheduled_date?: string | null
+          skill_plan_id: string
+          sort_order?: number
+          time_spent_minutes?: number | null
+          topic_name: string
+        }
+        Update: {
+          completed?: boolean | null
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          estimated_minutes?: number
+          id?: string
+          scheduled_date?: string | null
+          skill_plan_id?: string
+          sort_order?: number
+          time_spent_minutes?: number | null
+          topic_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "skill_topics_skill_plan_id_fkey"
+            columns: ["skill_plan_id"]
+            isOneToOne: false
+            referencedRelation: "skill_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       study_materials: {
         Row: {
           content: string | null
