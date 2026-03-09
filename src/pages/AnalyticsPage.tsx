@@ -4,6 +4,7 @@ import WeeklyReport from "@/components/WeeklyReport";
 import ExamReadiness from "@/components/ExamReadiness";
 import StudyStrategyEngine from "@/components/StudyStrategyEngine";
 import WeakTopicDetector from "@/components/WeakTopicDetector";
+import LearningProgressPredictor from "@/components/LearningProgressPredictor";
 import { motion } from "framer-motion";
 
 const AnalyticsPage = () => (
@@ -15,9 +16,12 @@ const AnalyticsPage = () => (
     <PerformanceAnalytics />
     <div className="grid gap-6 lg:grid-cols-2">
       <ExamReadiness />
-      <StudyStrategyEngine />
+      <LearningProgressPredictor />
     </div>
-    <WeakTopicDetector />
+    <div className="grid gap-6 lg:grid-cols-2">
+      <StudyStrategyEngine />
+      <WeakTopicDetector />
+    </div>
     <div className="grid gap-6 lg:grid-cols-2">
       <StudyHeatmap />
       <WeeklyReport />
