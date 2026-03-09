@@ -40,10 +40,13 @@ const AssessmentSetup = ({ onStart, loading }: Props) => {
   const canProceed = () => {
     if (step === 0) return true;
     if (step === 1) {
-      if (config.skillCategory === "htmlcss") return true; // auto-set
+      if (config.skillCategory === "htmlcss") return !!config.topic;
       return !!config.skill;
     }
-    if (step === 2) return !!config.topic.trim();
+    if (step === 2) {
+      if (config.skillCategory === "htmlcss") return true; // optional extra requirements
+      return !!config.topic.trim();
+    }
     if (step === 3) return true;
     if (step === 4) return true;
     return false;
