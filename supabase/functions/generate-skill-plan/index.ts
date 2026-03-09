@@ -53,21 +53,24 @@ REQUIREMENTS:
 
 Provide real, working URLs for resources (use well-known sites like MDN, W3Schools, GeeksforGeeks, tutorialspoint, youtube.com, docs.python.org, cprogramming.com, etc.)`;
 
-    // Call 2: Generate comprehensive skill analysis
-    const analysisPrompt = `You are a Career Architect and Skill Analyst. Analyze the skill "${skill_name}"${specific_topic ? ` (focus: ${specific_topic})` : ""} for a ${experience_level} learner.
+    // Call 2: Generate comprehensive student-focused skill analysis
+    const analysisPrompt = `You are an AI Learning Architect and Student Skill Mastery Guide. Analyze the skill "${skill_name}"${specific_topic ? ` (focus: ${specific_topic})` : ""} for a ${experience_level} student.
 
-Produce a comprehensive analysis covering ALL of the following sections:
+Focus ONLY on learning, understanding, and mastering the skill. This is for students, not professionals.
 
-1. SKILL OVERVIEW: What it is, where used, why valuable, career opportunities
-2. DIFFICULTY ANALYSIS: Rate 1-10 for conceptual_difficulty, technical_complexity, learning_curve, time_to_master, job_market_competition. Provide overall_score, classification (Beginner/Intermediate/Advanced), estimated_weeks
-3. PREREQUISITES: absolute_prerequisites (required before learning) and helpful_skills (supporting)
-4. LEARNING STAGES: 6 stages (Foundations, Core Concepts, Practical Implementation, Advanced Techniques, Real-World Applications, Professional Level) - each with topics, key_concepts, tools, exercises
-5. PROJECTS: 3 beginner, 3 intermediate, 3 advanced, 1 portfolio project - each with name, description, what_it_teaches
-6. TIMELINE: 30_day, 90_day, 6_month milestones
-7. RESOURCES: courses, books, youtube_channels, websites, practice_platforms (name + url)
-8. COMMON MISTAKES: list of mistakes with how_to_avoid
-9. CAREER PATHS: jobs, freelance, startup, earn_online opportunities
-10. SKILL COMPARISON: Compare with 3 related skills on ease, demand, pay`;
+Produce a comprehensive student-focused analysis covering ALL sections:
+
+1. SKILL OVERVIEW: What the skill is (simple explanation), why useful to learn, where used in real life, examples of things that can be built
+2. DIFFICULTY ANALYSIS: Rate 1-10 for concept_difficulty, technical_difficulty, learning_curve, time_to_learn. Provide overall_score, classification (Beginner/Intermediate/Advanced), estimated_weeks
+3. PREREQUISITES: core prerequisites (must know before starting, with reasons) and helpful supporting knowledge (with reasons)
+4. LEARNING ROADMAP: 5 stages (Foundations, Core Concepts, Practical Practice, Advanced Understanding, Mastery) - each with topics, key_concepts, practice_exercises
+5. SKILL TREE: A text-based tree showing how the skill grows from beginner to advanced (use ├── and └── formatting)
+6. PRACTICE PROJECTS: 3 beginner, 3 intermediate, 2 advanced projects - each with name, description, what_it_teaches
+7. LEARNING TIMELINE (assuming 1-2 hours/day): 30-day plan, 90-day plan, 6-month mastery plan with milestones
+8. TOOLS NEEDED: beginner tools and advanced tools, each with name and what it's used for
+9. BEST LEARNING RESOURCES: beginner-friendly courses, youtube channels, books, websites, practice platforms (name + url)
+10. COMMON BEGINNER MISTAKES: mistakes students make and how to avoid them
+11. STUDY TIPS: strategies for faster learning and better retention`;
 
     const aiHeaders = {
       Authorization: `Bearer ${LOVABLE_API_KEY}`,
