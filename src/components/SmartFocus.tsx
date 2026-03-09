@@ -1,10 +1,12 @@
-import { useState, useEffect, useCallback } from "react";
-import { Play, Pause, RotateCcw, Coffee, Zap, Volume2, Sparkles, CheckCircle } from "lucide-react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { Play, Pause, RotateCcw, Coffee, Zap, Sparkles, CheckCircle, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { useSessions } from "@/hooks/useSessions";
 import { useSubjects } from "@/hooks/useSubjects";
+import { useFocusActivity } from "@/hooks/useFocusActivity";
 import { motion } from "framer-motion";
+import { toast } from "sonner";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
@@ -23,6 +25,7 @@ const SmartFocus = () => {
   const { user } = useAuth();
   const { addSession, sessions } = useSessions();
   const { subjects } = useSubjects();
+  const { saveFocusActivity, recommendedSessionMinutes, avgFocusScore } = useFocusActivity();
 
   const [studyDuration, setStudyDuration] = useState(25 * 60);
   const [timeLeft, setTimeLeft] = useState(25 * 60);
@@ -32,10 +35,81 @@ const SmartFocus = () => {
   const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
   const [showComplete, setShowComplete] = useState(false);
 
-  const avgFocusScore = sessions.length > 0
-    ? Math.round(sessions.slice(0, 5).reduce((a, s) => a + (s.focus_score ?? 80), 0) / Math.min(sessions.length, 5))
-    : 80;
+  // Distraction tracking state
+  const tabSwitchCount = useRef(0);
+  const pauseCount = useRef(0);
+  const timeAwaySeconds = useRef(0);
+  const idleTimeSeconds = useRef(0);
+  const lastActivityTime = useRef(Date.now());
+  const hiddenStartTime = useRef<number | null>(null);
+  const distractionAlerts = useRef<string[]>([]);
+  const [liveDistractions, setLiveDistractions] = useState(0);
 
+  // Reset distraction counters
+  const resetTracking = useCallback(() => {
+    tabSwitchCount.current = 0;
+    pauseCount.current = 0;
+    timeAwaySeconds.current = 0;
+    idleTimeSeconds.current = 0;
+    lastActivityTime.current = Date.now();
+    hiddenStartTime.current = null;
+    distractionAlerts.current = [];
+    setLiveDistractions(0);
+  }, []);
+
+  // Tab visibility tracking
+  useEffect(() => {
+    if (!isRunning || isBreak) return;
+
+    const handleVisibility = () => {
+      if (document.hidden) {
+        hiddenStartTime.current = Date.now();
+        tabSwitchCount.current += 1;
+        setLiveDistractions(d => d + 1);
+
+        if (tabSwitchCount.current === 3) {
+          toast.warning("You've switched tabs 3 times. Stay focused! 🎯");
+        }
+        if (tabSwitchCount.current === 5) {
+          toast.warning("5 tab switches detected. Your focus score is dropping.");
+        }
+      } else if (hiddenStartTime.current) {
+        const away = Math.round((Date.now() - hiddenStartTime.current) / 1000);
+        timeAwaySeconds.current += away;
+        hiddenStartTime.current = null;
+
+        if (away > 30) {
+          toast.info(`You were away for ${away}s. Try to stay on this page during focus time.`);
+        }
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, [isRunning, isBreak]);
+
+  // Idle detection
+  useEffect(() => {
+    if (!isRunning || isBreak) return;
+
+    const resetIdle = () => { lastActivityTime.current = Date.now(); };
+    const events = ["mousemove", "keydown", "mousedown", "touchstart", "scroll"];
+    events.forEach(e => window.addEventListener(e, resetIdle, { passive: true }));
+
+    const idleCheck = setInterval(() => {
+      const idleMs = Date.now() - lastActivityTime.current;
+      if (idleMs > 60000) {
+        idleTimeSeconds.current += 1;
+      }
+    }, 1000);
+
+    return () => {
+      events.forEach(e => window.removeEventListener(e, resetIdle));
+      clearInterval(idleCheck);
+    };
+  }, [isRunning, isBreak]);
+
+  // Timer
   useEffect(() => {
     if (!isRunning) return;
     const interval = setInterval(() => {
@@ -43,7 +117,8 @@ const SmartFocus = () => {
         if (t <= 1) {
           setIsRunning(false);
           if (!isBreak) {
-            const focusScore = Math.min(100, Math.floor(Math.random() * 20) + 75);
+            const distractionEvents = tabSwitchCount.current + pauseCount.current;
+            const focusScore = Math.max(0, Math.min(100, 100 - distractionEvents * 5));
             const xpEarned = Math.round(studyDuration / 60);
             const endTime = new Date().toISOString();
 
@@ -55,7 +130,21 @@ const SmartFocus = () => {
               focus_score: focusScore,
               xp_earned: xpEarned,
             });
+
+            saveFocusActivity.mutate({
+              tab_switch_count: tabSwitchCount.current,
+              idle_time_seconds: idleTimeSeconds.current,
+              distraction_events: distractionEvents,
+              focus_score: focusScore,
+              pause_count: pauseCount.current,
+              time_away_seconds: timeAwaySeconds.current,
+            });
+
             setShowComplete(true);
+
+            if (focusScore < 60) {
+              toast.warning("High distraction session. Try shorter sessions next time.");
+            }
           }
           setIsBreak((b) => !b);
           return isBreak ? studyDuration : BREAK_TIME;
@@ -68,7 +157,15 @@ const SmartFocus = () => {
 
   const handleStart = () => {
     if (!isRunning) {
-      setStartTime(new Date().toISOString());
+      if (!startTime) {
+        resetTracking();
+        setStartTime(new Date().toISOString());
+      } else {
+        pauseCount.current += 1;
+        setLiveDistractions(d => d + 1);
+      }
+    } else {
+      pauseCount.current += 1;
     }
     setIsRunning(!isRunning);
   };
@@ -78,7 +175,8 @@ const SmartFocus = () => {
     setIsBreak(false);
     setTimeLeft(studyDuration);
     setStartTime(null);
-  }, [studyDuration]);
+    resetTracking();
+  }, [studyDuration, resetTracking]);
 
   const handleDurationChange = (val: number) => {
     if (isRunning) return;
@@ -91,6 +189,8 @@ const SmartFocus = () => {
   const total = isBreak ? BREAK_TIME : studyDuration;
   const progress = ((total - timeLeft) / total) * 100;
   const circumference = 2 * Math.PI * 52;
+
+  const liveFocusScore = Math.max(0, 100 - liveDistractions * 5);
 
   return (
     <>
@@ -107,11 +207,25 @@ const SmartFocus = () => {
             </div>
             Smart Focus
           </h3>
-          <div className="flex items-center gap-1.5 rounded-lg bg-primary/10 px-2.5 py-1">
-            <Sparkles className="h-3 w-3 text-primary" />
-            <span className="text-[10px] font-semibold text-primary">
-              Focus: {avgFocusScore > 85 ? "Excellent" : avgFocusScore > 70 ? "Good" : "Building"}
-            </span>
+          <div className="flex items-center gap-2">
+            {isRunning && !isBreak && (
+              <div className={`flex items-center gap-1 rounded-lg px-2 py-1 ${
+                liveFocusScore >= 80 ? "bg-primary/10" : liveFocusScore >= 60 ? "bg-accent/10" : "bg-destructive/10"
+              }`}>
+                {liveFocusScore < 60 && <AlertTriangle className="h-3 w-3 text-destructive" />}
+                <span className={`text-[10px] font-semibold ${
+                  liveFocusScore >= 80 ? "text-primary" : liveFocusScore >= 60 ? "text-accent-foreground" : "text-destructive"
+                }`}>
+                  Focus: {liveFocusScore}%
+                </span>
+              </div>
+            )}
+            <div className="flex items-center gap-1.5 rounded-lg bg-primary/10 px-2.5 py-1">
+              <Sparkles className="h-3 w-3 text-primary" />
+              <span className="text-[10px] font-semibold text-primary">
+                Rec: {recommendedSessionMinutes}m
+              </span>
+            </div>
           </div>
         </div>
 
@@ -185,6 +299,11 @@ const SmartFocus = () => {
               <span className="text-4xl font-extrabold tracking-tight text-foreground tabular-nums">
                 {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
               </span>
+              {isRunning && !isBreak && liveDistractions > 0 && (
+                <span className="text-[9px] text-muted-foreground mt-1">
+                  {liveDistractions} distraction{liveDistractions > 1 ? "s" : ""}
+                </span>
+              )}
             </div>
           </div>
 
@@ -208,9 +327,16 @@ const SmartFocus = () => {
               <CheckCircle className="h-5 w-5 text-study-success" />
               Session Complete! 🎉
             </DialogTitle>
-            <DialogDescription>
-              Great focus session! You earned <span className="font-bold text-primary">+{Math.round(studyDuration / 60)} XP</span>.
-              Take a short break before your next session.
+            <DialogDescription className="space-y-2">
+              <p>
+                Great focus session! You earned <span className="font-bold text-primary">+{Math.round(studyDuration / 60)} XP</span>.
+              </p>
+              <div className="text-xs space-y-1 bg-secondary/30 rounded-lg p-3 mt-2">
+                <p>📊 Tab switches: {tabSwitchCount.current}</p>
+                <p>⏸️ Pauses: {pauseCount.current}</p>
+                <p>🎯 Focus score: {Math.max(0, 100 - (tabSwitchCount.current + pauseCount.current) * 5)}%</p>
+                {timeAwaySeconds.current > 0 && <p>⏱️ Time away: {timeAwaySeconds.current}s</p>}
+              </div>
             </DialogDescription>
           </DialogHeader>
           <Button onClick={() => setShowComplete(false)} className="gradient-bg text-primary-foreground border-0 rounded-xl">
