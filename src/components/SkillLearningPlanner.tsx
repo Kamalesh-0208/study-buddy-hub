@@ -260,8 +260,29 @@ const SkillLearningPlanner = () => {
                     exit={{ height: 0, opacity: 0 }}
                     className="overflow-hidden"
                   >
-                    <SkillPlanTopics planId={plan.id} planSkillName={plan.skill_name} />
+                    {plan.analysis_data ? (
+                      <Tabs defaultValue="roadmap" className="mt-3">
+                        <TabsList className="h-8">
+                          <TabsTrigger value="roadmap" className="text-xs px-3 py-1 h-6 gap-1">
+                            <BookOpen className="h-3 w-3" /> Roadmap
+                          </TabsTrigger>
+                          <TabsTrigger value="analysis" className="text-xs px-3 py-1 h-6 gap-1">
+                            <Brain className="h-3 w-3" /> Skill Analysis
+                          </TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="roadmap">
+                          <SkillPlanTopics planId={plan.id} planSkillName={plan.skill_name} />
+                        </TabsContent>
+                        <TabsContent value="analysis">
+                          <SkillAnalysisView analysis={plan.analysis_data} skillName={plan.skill_name} />
+                        </TabsContent>
+                      </Tabs>
+                    ) : (
+                      <SkillPlanTopics planId={plan.id} planSkillName={plan.skill_name} />
+                    )}
                   </motion.div>
+                )}
+              </AnimatePresence>
                 )}
               </AnimatePresence>
             </div>
