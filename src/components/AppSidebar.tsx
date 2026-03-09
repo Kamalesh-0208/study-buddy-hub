@@ -17,6 +17,7 @@ const navItems = [
   { icon: Medal, label: "Leaderboard", path: "/leaderboard" },
   { icon: Brain, label: "AI Planner", path: "/planner" },
   { icon: ClipboardCheck, label: "Assessment", path: "/assessment" },
+  { icon: Sparkles, label: "Feature Builder", path: "/feature-builder" },
 ];
 
 const bottomItems = [

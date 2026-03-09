@@ -2,3 +2,6 @@ project_id = "zvfmlgolzdwqlcufntuo"
 
 [functions.generate-assessment]
 verify_jwt = false
+
+[functions.ai-feature-builder]
+verify_jwt = false
