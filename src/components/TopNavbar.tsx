@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useTasks } from "@/hooks/useTasks";
 import { useSubjects } from "@/hooks/useSubjects";
 import { motion, AnimatePresence } from "framer-motion";
+import FeatureRequestDialog from "@/components/FeatureRequestDialog";
 
 interface TopNavbarProps {
   darkMode: boolean;
