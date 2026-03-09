@@ -35,7 +35,7 @@ const AssessmentSetup = ({ onStart, loading }: Props) => {
     mode: "practice",
   });
 
-  const skills = config.skillCategory === "programming" ? PROGRAMMING_SKILLS : THEORY_SKILLS;
+  const skills = config.skillCategory === "programming" ? PROGRAMMING_SKILLS : config.skillCategory === "htmlcss" ? ["HTML/CSS"] : THEORY_SKILLS;
 
   const canProceed = () => {
     if (step === 0) return true;
