@@ -14,6 +14,7 @@ import GoalsPage from "./pages/GoalsPage";
 import LeaderboardPage from "./pages/LeaderboardPage";
 import SettingsPage from "./pages/SettingsPage";
 import AuthPage from "./pages/AuthPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -50,6 +51,7 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/auth" element={<PublicRoute><AuthPage /></PublicRoute>} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
               <Route path="/" element={<Index />} />
               <Route path="/focus" element={<FocusPage />} />
