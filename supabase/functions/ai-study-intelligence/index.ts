@@ -15,7 +15,7 @@ serve(async (req) => {
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_PUBLISHABLE_KEY")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
       { global: { headers: { Authorization: authHeader } } }
     );
 
@@ -370,6 +370,104 @@ Based on low study time, incomplete tasks, and low focus scores, identify specif
       }
 
       return new Response(JSON.stringify({ weak_topics: result.weak_topics }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "predict_progress") {
+      const predictions = [];
+
+      for (const subject of subjects) {
+        const subjectSessions = sessions.filter(s => s.subject_id === subject.id);
+        const exam = exams.find(e => e.subject_id === subject.id);
+        const totalHours = Number(subject.total_study_hours) || 0;
+
+        // Calculate learning speed (hours per day over last 14 days)
+        const twoWeeksAgo = new Date(now.getTime() - 14 * 86400000);
+        const recentSessions = subjectSessions.filter(s => new Date(s.start_time) >= twoWeeksAgo);
+        const recentStudyDays = new Set(recentSessions.map(s => new Date(s.start_time).toISOString().split("T")[0]));
+        const recentHours = recentSessions.reduce((sum, s) => sum + s.duration_seconds, 0) / 3600;
+        const activeDays = Math.max(1, recentStudyDays.size);
+        const learningSpeed = recentHours / activeDays; // hours per study day
+
+        // Calculate current readiness (same formula as calculate_readiness)
+        const studyHoursScore = Math.min(40, (totalHours / 50) * 40);
+        const revisionScore = Math.min(20, (recentSessions.length / 10) * 20);
+        const subjectTasks = tasks.filter(t => t.subject_id === subject.id);
+        const completedTasks = subjectTasks.filter(t => t.completed).length;
+        const taskRate = subjectTasks.length > 0 ? completedTasks / subjectTasks.length : 0;
+        const taskScore = taskRate * 15;
+        const subjectFocus = focusData.filter(f => f.session_id && subjectSessions.some(s => s.id === f.session_id));
+        const avgFocus = subjectFocus.length > 0
+          ? subjectFocus.reduce((s, f) => s + (f.focus_score ?? 80), 0) / subjectFocus.length
+          : (subjectSessions.length > 0 ? subjectSessions.reduce((s, ss) => s + (ss.focus_score ?? 80), 0) / subjectSessions.length : 0);
+        const focusScore = (avgFocus / 100) * 15;
+        const studyDaysSet = new Set(recentSessions.map(s => new Date(s.start_time).toISOString().split("T")[0]));
+        const consistencyScore = Math.min(10, (studyDaysSet.size / 10) * 10);
+        const currentReadiness = Math.min(100, Math.round(studyHoursScore + revisionScore + taskScore + focusScore + consistencyScore));
+
+        // Predict future readiness
+        const daysRemaining = exam ? Math.max(0, Math.ceil((new Date(exam.exam_date).getTime() - now.getTime()) / 86400000)) : null;
+        const studyDaysPerWeek = recentStudyDays.size > 0 ? Math.min(7, Math.round((recentStudyDays.size / 14) * 7)) : 3;
+        const predictedStudyDays = daysRemaining !== null ? Math.round(daysRemaining * (studyDaysPerWeek / 7)) : 0;
+        const predictedAdditionalHours = predictedStudyDays * learningSpeed;
+        const predictedTotalHours = totalHours + predictedAdditionalHours;
+
+        // Predicted readiness uses the same formula with projected hours
+        const predictedStudyHoursScore = Math.min(40, (predictedTotalHours / 50) * 40);
+        // Assume revision and consistency improve proportionally
+        const predictedRevision = Math.min(20, revisionScore + (daysRemaining !== null ? Math.min(10, predictedStudyDays * 0.5) : 0));
+        const predictedReadiness = Math.min(100, Math.round(predictedStudyHoursScore + predictedRevision + taskScore + focusScore + consistencyScore));
+
+        const probabilityReady = Math.min(100, Math.round((predictedReadiness / 80) * 100));
+        const recommendedAdditionalHours = Math.max(0, Math.round((80 - predictedReadiness) * 0.5 * 10) / 10);
+
+        // Generate alert
+        let alert = "";
+        if (daysRemaining !== null) {
+          if (predictedReadiness >= 80) alert = `You're on track to reach exam readiness for ${subject.name}!`;
+          else if (predictedReadiness >= 60) alert = `At your current pace, you'll reach ${predictedReadiness}% readiness. Add ${recommendedAdditionalHours}h more to be fully ready.`;
+          else alert = `You may not reach exam readiness for ${subject.name}. Consider increasing daily study by 30+ minutes.`;
+        }
+
+        const predData = {
+          user_id: user.id,
+          subject_id: subject.id,
+          current_readiness: currentReadiness,
+          predicted_readiness: predictedReadiness,
+          predicted_study_hours: Math.round(predictedAdditionalHours * 10) / 10,
+          learning_speed: Math.round(learningSpeed * 100) / 100,
+          days_remaining: daysRemaining,
+          exam_date: exam?.exam_date ?? null,
+          probability_ready: probabilityReady,
+          recommended_additional_hours: recommendedAdditionalHours,
+          alert_message: alert,
+        };
+
+        // Upsert prediction
+        const { data: existing } = await supabase
+          .from("learning_progress_predictions")
+          .select("id")
+          .eq("user_id", user.id)
+          .eq("subject_id", subject.id)
+          .order("calculated_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (existing) {
+          await supabase.from("learning_progress_predictions").update({ ...predData, calculated_at: now.toISOString() }).eq("id", existing.id);
+        } else {
+          await supabase.from("learning_progress_predictions").insert(predData);
+        }
+
+        predictions.push({
+          ...predData,
+          subject_name: subject.name,
+          subject_color: subject.color,
+        });
+      }
+
+      return new Response(JSON.stringify({ predictions }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
