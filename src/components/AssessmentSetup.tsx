@@ -5,14 +5,15 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Code, BookOpen, Zap, GraduationCap, Play, FileCheck } from "lucide-react";
+import { Code, BookOpen, Zap, GraduationCap, Play, FileCheck, Palette } from "lucide-react";
 import { motion } from "framer-motion";
 
-const PROGRAMMING_SKILLS = ["C", "C++", "Java", "JavaScript", "HTML", "CSS", "React"];
+const PROGRAMMING_SKILLS = ["C", "C++", "Java", "JavaScript", "React"];
 const THEORY_SKILLS = ["Aptitude", "Logical Reasoning", "Algebra", "Calculus", "Differential Equations", "Data Structures", "DBMS", "Communication Skills"];
+const HTMLCSS_TOPICS = ["Landing Page", "Navbar Layout", "Profile Card", "Pricing Section", "Product Page", "Dashboard Layout", "Login Page", "Blog Layout"];
 
 interface AssessmentConfig {
-  skillCategory: "programming" | "theory";
+  skillCategory: "programming" | "theory" | "htmlcss";
   skill: string;
   topic: string;
   difficulty: "easy" | "medium" | "hard" | "mixed";
@@ -34,15 +35,26 @@ const AssessmentSetup = ({ onStart, loading }: Props) => {
     mode: "practice",
   });
 
-  const skills = config.skillCategory === "programming" ? PROGRAMMING_SKILLS : THEORY_SKILLS;
+  const skills = config.skillCategory === "programming" ? PROGRAMMING_SKILLS : config.skillCategory === "htmlcss" ? ["HTML/CSS"] : THEORY_SKILLS;
 
   const canProceed = () => {
     if (step === 0) return true;
-    if (step === 1) return !!config.skill;
-    if (step === 2) return !!config.topic.trim();
+    if (step === 1) {
+      if (config.skillCategory === "htmlcss") return !!config.topic;
+      return !!config.skill;
+    }
+    if (step === 2) {
+      if (config.skillCategory === "htmlcss") return true; // optional extra requirements
+      return !!config.topic.trim();
+    }
     if (step === 3) return true;
     if (step === 4) return true;
     return false;
+  };
+
+  const handleCategoryChange = (v: string) => {
+    const cat = v as AssessmentConfig["skillCategory"];
+    setConfig({ ...config, skillCategory: cat, skill: cat === "htmlcss" ? "HTML/CSS" : "", topic: "" });
   };
 
   const handleNext = () => {
@@ -67,14 +79,14 @@ const AssessmentSetup = ({ onStart, loading }: Props) => {
               <CardDescription>Choose the type of assessment you want to take</CardDescription>
             </CardHeader>
             <CardContent>
-              <RadioGroup value={config.skillCategory} onValueChange={(v) => setConfig({ ...config, skillCategory: v as any, skill: "" })}>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <RadioGroup value={config.skillCategory} onValueChange={handleCategoryChange}>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <Label htmlFor="cat-prog" className="cursor-pointer">
                     <Card className={`p-4 transition-all ${config.skillCategory === "programming" ? "border-primary bg-primary/5" : "hover:border-muted-foreground/30"}`}>
                       <div className="flex items-start gap-3">
                         <RadioGroupItem value="programming" id="cat-prog" />
                         <div>
-                          <div className="flex items-center gap-2 font-semibold"><Code className="h-4 w-4" /> Programming Skill</div>
+                          <div className="flex items-center gap-2 font-semibold"><Code className="h-4 w-4" /> Programming</div>
                           <p className="text-xs text-muted-foreground mt-1">Coding problems with test cases</p>
                         </div>
                       </div>
@@ -91,13 +103,24 @@ const AssessmentSetup = ({ onStart, loading }: Props) => {
                       </div>
                     </Card>
                   </Label>
+                  <Label htmlFor="cat-htmlcss" className="cursor-pointer">
+                    <Card className={`p-4 transition-all ${config.skillCategory === "htmlcss" ? "border-primary bg-primary/5" : "hover:border-muted-foreground/30"}`}>
+                      <div className="flex items-start gap-3">
+                        <RadioGroupItem value="htmlcss" id="cat-htmlcss" />
+                        <div>
+                          <div className="flex items-center gap-2 font-semibold"><Palette className="h-4 w-4" /> HTML/CSS</div>
+                          <p className="text-xs text-muted-foreground mt-1">Recreate webpage designs</p>
+                        </div>
+                      </div>
+                    </Card>
+                  </Label>
                 </div>
               </RadioGroup>
             </CardContent>
           </Card>
         )}
 
-        {step === 1 && (
+        {step === 1 && config.skillCategory !== "htmlcss" && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><GraduationCap className="h-5 w-5 text-primary" /> Choose Skill</CardTitle>
@@ -116,7 +139,26 @@ const AssessmentSetup = ({ onStart, loading }: Props) => {
           </Card>
         )}
 
-        {step === 2 && (
+        {step === 1 && config.skillCategory === "htmlcss" && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><Palette className="h-5 w-5 text-primary" /> Choose Webpage Topic</CardTitle>
+              <CardDescription>Select a webpage design to recreate</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-2">
+                {HTMLCSS_TOPICS.map(t => (
+                  <Badge key={t} variant={config.topic === t ? "default" : "outline"} className="cursor-pointer text-sm py-1.5 px-3"
+                    onClick={() => setConfig({ ...config, topic: t })}>
+                    {t}
+                  </Badge>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {step === 2 && config.skillCategory !== "htmlcss" && (
           <Card>
             <CardHeader>
               <CardTitle>Enter Topic</CardTitle>
@@ -125,6 +167,20 @@ const AssessmentSetup = ({ onStart, loading }: Props) => {
             <CardContent>
               <Input placeholder={config.skillCategory === "programming" ? "e.g. Loops, Arrays, Functions" : "e.g. Clocks, Number Series, SQL Queries"}
                 value={config.topic} onChange={e => setConfig({ ...config, topic: e.target.value })} />
+            </CardContent>
+          </Card>
+        )}
+
+        {step === 2 && config.skillCategory === "htmlcss" && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Additional Requirements</CardTitle>
+              <CardDescription>Optionally add specific requirements (leave blank for random)</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Input placeholder="e.g. Use Flexbox, Add hover effects, Mobile responsive"
+                value={config.topic.includes("Landing Page") || HTMLCSS_TOPICS.includes(config.topic) ? "" : config.topic}
+                onChange={e => setConfig({ ...config, topic: config.topic.split("|")[0] + (e.target.value ? "|" + e.target.value : "") })} />
             </CardContent>
           </Card>
         )}

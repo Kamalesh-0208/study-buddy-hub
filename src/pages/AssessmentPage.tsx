@@ -4,6 +4,7 @@ import { useToast } from "@/hooks/use-toast";
 import AssessmentSetup from "@/components/AssessmentSetup";
 import MCQAssessment from "@/components/MCQAssessment";
 import ProgrammingAssessment from "@/components/ProgrammingAssessment";
+import HTMLCSSAssessment from "@/components/HTMLCSSAssessment";
 import { ClipboardCheck } from "lucide-react";
 
 const AssessmentPage = () => {
@@ -16,7 +17,7 @@ const AssessmentPage = () => {
     try {
       const { data, error } = await supabase.functions.invoke("generate-assessment", {
         body: {
-          skillCategory: config.skillCategory === "programming" ? "programming" : "theory",
+          skillCategory: config.skillCategory,
           skill: config.skill,
           topic: config.topic,
           difficulty: config.difficulty,
@@ -53,6 +54,8 @@ const AssessmentPage = () => {
         <AssessmentSetup onStart={handleStart} loading={loading} />
       ) : assessmentData.type === "mcq" ? (
         <MCQAssessment assessment={assessmentData.assessment} mode={assessmentData.mode} onReset={handleReset} />
+      ) : assessmentData.type === "htmlcss" ? (
+        <HTMLCSSAssessment assessment={assessmentData.assessment} mode={assessmentData.mode} onReset={handleReset} />
       ) : (
         <ProgrammingAssessment assessment={assessmentData.assessment} mode={assessmentData.mode} skill={assessmentData.skill} onReset={handleReset} />
       )}

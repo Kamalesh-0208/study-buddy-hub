@@ -14,13 +14,121 @@ serve(async (req) => {
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
     const isProgramming = skillCategory === "programming";
+    const isHTMLCSS = skillCategory === "htmlcss";
     const isExam = mode === "exam";
 
     let systemPrompt: string;
     let toolSchema: any;
+    let toolName: string;
 
-    if (isProgramming) {
-      const questionCount = isExam ? 2 : 2;
+    if (isHTMLCSS) {
+      // HTML/CSS webpage recreation challenge
+      const webpageTopic = topic.split("|")[0] || "Landing Page";
+      const extraReqs = topic.split("|")[1] || "";
+
+      const requirementPool = [
+        "Use Flexbox Layout",
+        "Use CSS Grid Layout",
+        "Use hover effects on buttons/links",
+        "Use responsive design with media queries",
+        "Use custom Google Fonts",
+        "Use CSS transitions or animations",
+        "Use semantic HTML elements",
+        "Use a color gradient",
+      ];
+      // Pick 3-4 random requirements
+      const shuffled = requirementPool.sort(() => Math.random() - 0.5);
+      const numReqs = difficulty === "easy" ? 2 : difficulty === "hard" ? 4 : 3;
+      const selectedReqs = shuffled.slice(0, numReqs);
+      if (extraReqs) selectedReqs.push(extraReqs);
+
+      systemPrompt = `You are an expert HTML/CSS assessment generator for students. Generate a webpage recreation challenge.
+
+Topic: "${webpageTopic}" webpage
+Difficulty: "${difficulty}"
+Mode: ${isExam ? "Exam (1.5 hours, no hints)" : "Practice (with hints and solution)"}
+
+The student must recreate a webpage that matches your reference design.
+
+REQUIRED IMPLEMENTATION RULES (student MUST follow these):
+${selectedReqs.map((r, i) => `${i + 1}. ${r}`).join("\n")}
+
+Generate:
+1. A detailed design description of the webpage to build
+2. Design specifications (colors, typography, components, spacing)
+3. The implementation requirements with descriptions
+4. Complete reference HTML code (index.html)
+5. Complete reference CSS code (styles.css)
+6. Layout explanation
+7. ${isExam ? "No hints" : "5 helpful hints for students"}
+8. Evaluation criteria
+
+The reference code should be a complete, working webpage that a student could open in a browser.
+Difficulty "${difficulty}" means:
+- Easy: Simple layout, few components, basic styling
+- Medium: Moderate layout with multiple sections, some interactive elements
+- Hard: Complex layout, animations, responsive design, advanced CSS
+- Mixed: Combination of easy and complex elements`;
+
+      toolName = "generate_htmlcss_assessment";
+      toolSchema = {
+        type: "function",
+        function: {
+          name: toolName,
+          description: "Generate an HTML/CSS webpage recreation challenge",
+          parameters: {
+            type: "object",
+            properties: {
+              challenge: {
+                type: "object",
+                properties: {
+                  title: { type: "string" },
+                  design_description: { type: "string" },
+                  design_spec: {
+                    type: "object",
+                    properties: {
+                      layout_description: { type: "string" },
+                      color_scheme: { type: "array", items: { type: "string" } },
+                      typography: { type: "string" },
+                      components: { type: "array", items: { type: "string" } },
+                      spacing_notes: { type: "string" },
+                      responsive_notes: { type: "string" },
+                    },
+                    required: ["layout_description", "color_scheme", "typography", "components", "spacing_notes", "responsive_notes"],
+                    additionalProperties: false,
+                  },
+                  requirements: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      properties: {
+                        rule: { type: "string" },
+                        description: { type: "string" },
+                      },
+                      required: ["rule", "description"],
+                      additionalProperties: false,
+                    },
+                  },
+                  reference_html: { type: "string" },
+                  reference_css: { type: "string" },
+                  layout_explanation: { type: "string" },
+                  hints: { type: "array", items: { type: "string" } },
+                  evaluation_criteria: { type: "array", items: { type: "string" } },
+                  difficulty_label: { type: "string" },
+                },
+                required: ["title", "design_description", "design_spec", "requirements", "reference_html", "reference_css", "layout_explanation", "hints", "evaluation_criteria", "difficulty_label"],
+                additionalProperties: false,
+              },
+              timer_minutes: { type: "number" },
+              instructions: { type: "string" },
+            },
+            required: ["challenge", "timer_minutes", "instructions"],
+            additionalProperties: false,
+          },
+        },
+      };
+    } else if (isProgramming) {
+      const questionCount = 2;
       systemPrompt = `You are an expert programming assessment generator for students. Generate ${questionCount} coding problems for the skill "${skill}" on the topic "${topic}" at "${difficulty}" difficulty.
 
 Each problem must be a real coding challenge appropriate for the difficulty level. Include clear problem descriptions, constraints, and test cases.
@@ -39,10 +147,11 @@ For each problem provide:
 
 ${isExam ? "This is for EXAM mode - do NOT include solutions or hints in the questions themselves. Solutions will be revealed after submission." : "This is for PRACTICE mode - include solutions and explanations with each problem."}`;
 
+      toolName = "generate_programming_assessment";
       toolSchema = {
         type: "function",
         function: {
-          name: "generate_programming_assessment",
+          name: toolName,
           description: "Generate programming coding problems",
           parameters: {
             type: "object",
@@ -61,10 +170,7 @@ ${isExam ? "This is for EXAM mode - do NOT include solutions or hints in the que
                       type: "array",
                       items: {
                         type: "object",
-                        properties: {
-                          input: { type: "string" },
-                          expected_output: { type: "string" },
-                        },
+                        properties: { input: { type: "string" }, expected_output: { type: "string" } },
                         required: ["input", "expected_output"],
                         additionalProperties: false,
                       },
@@ -73,20 +179,14 @@ ${isExam ? "This is for EXAM mode - do NOT include solutions or hints in the que
                       type: "array",
                       items: {
                         type: "object",
-                        properties: {
-                          input: { type: "string" },
-                          expected_output: { type: "string" },
-                        },
+                        properties: { input: { type: "string" }, expected_output: { type: "string" } },
                         required: ["input", "expected_output"],
                         additionalProperties: false,
                       },
                     },
                     solution_code: { type: "string" },
                     solution_explanation: { type: "string" },
-                    common_mistakes: {
-                      type: "array",
-                      items: { type: "string" },
-                    },
+                    common_mistakes: { type: "array", items: { type: "string" } },
                     difficulty_label: { type: "string" },
                   },
                   required: ["title", "description", "input_format", "output_format", "constraints", "sample_tests", "hidden_tests", "solution_code", "solution_explanation", "common_mistakes", "difficulty_label"],
@@ -126,10 +226,11 @@ For each question provide:
 
 ${isExam ? "This is EXAM mode with negative marking: +1 for correct, -0.25 for wrong. Pass mark is 24/40." : "This is PRACTICE mode - show explanations after each question."}`;
 
+      toolName = "generate_mcq_assessment";
       toolSchema = {
         type: "function",
         function: {
-          name: "generate_mcq_assessment",
+          name: toolName,
           description: "Generate MCQ assessment questions",
           parameters: {
             type: "object",
@@ -143,12 +244,7 @@ ${isExam ? "This is EXAM mode with negative marking: +1 for correct, -0.25 for w
                     question_text: { type: "string" },
                     options: {
                       type: "object",
-                      properties: {
-                        A: { type: "string" },
-                        B: { type: "string" },
-                        C: { type: "string" },
-                        D: { type: "string" },
-                      },
+                      properties: { A: { type: "string" }, B: { type: "string" }, C: { type: "string" }, D: { type: "string" } },
                       required: ["A", "B", "C", "D"],
                       additionalProperties: false,
                     },
@@ -172,8 +268,6 @@ ${isExam ? "This is EXAM mode with negative marking: +1 for correct, -0.25 for w
         },
       };
     }
-
-    const toolName = isProgramming ? "generate_programming_assessment" : "generate_mcq_assessment";
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -215,7 +309,7 @@ ${isExam ? "This is EXAM mode with negative marking: +1 for correct, -0.25 for w
     const assessment = JSON.parse(toolCall.function.arguments);
 
     return new Response(JSON.stringify({
-      type: isProgramming ? "programming" : "mcq",
+      type: isHTMLCSS ? "htmlcss" : isProgramming ? "programming" : "mcq",
       mode,
       skill,
       topic,
