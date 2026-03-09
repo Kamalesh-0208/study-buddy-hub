@@ -1,31 +1,36 @@
-import { Search, Bell, Moon, Sun, Flame, ChevronDown, X } from "lucide-react";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { Search, Bell, Moon, Sun, Flame, ChevronDown, X, LogOut } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { useStudyStore } from "@/store/useStudyStore";
+import { useAuth } from "@/hooks/useAuth";
+import { useTasks } from "@/hooks/useTasks";
+import { useSubjects } from "@/hooks/useSubjects";
 import { motion, AnimatePresence } from "framer-motion";
 
-const TopNavbar = () => {
-  const { darkMode, toggleDarkMode, streak, searchQuery, setSearchQuery, tasks, subjects, notifications, markNotificationRead } = useStudyStore();
+interface TopNavbarProps {
+  darkMode: boolean;
+  toggleDarkMode: () => void;
+}
+
+const TopNavbar = ({ darkMode, toggleDarkMode }: TopNavbarProps) => {
+  const { profile, signOut } = useAuth();
+  const { tasks } = useTasks();
+  const { subjects } = useSubjects();
+  const [searchQuery, setSearchQuery] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
-  const [showNotifs, setShowNotifs] = useState(false);
   const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [showProfile, setShowProfile] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
 
-  // Debounced search
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedQuery(searchQuery), 300);
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // Search results
   const searchResults = debouncedQuery.length > 1 ? [
     ...tasks.filter((t) => t.title.toLowerCase().includes(debouncedQuery.toLowerCase())).map((t) => ({ type: "Task", label: t.title })),
-    ...subjects.filter((s) => s.title.toLowerCase().includes(debouncedQuery.toLowerCase())).map((s) => ({ type: "Subject", label: s.title })),
+    ...subjects.filter((s) => s.name.toLowerCase().includes(debouncedQuery.toLowerCase())).map((s) => ({ type: "Subject", label: s.name })),
   ] : [];
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
-
-  // Keyboard shortcut
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
@@ -37,14 +42,10 @@ const TopNavbar = () => {
     return () => window.removeEventListener("keydown", handler);
   }, []);
 
-  // Initialize dark mode from store
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", darkMode);
-  }, [darkMode]);
+  const initials = (profile?.display_name ?? "U").charAt(0).toUpperCase();
 
   return (
     <header className="sticky top-0 z-30 h-16 flex items-center justify-between px-6 glass-strong border-b border-border/30">
-      {/* Search */}
       <div className="flex items-center gap-4 flex-1 max-w-xl relative" ref={searchRef}>
         <div className={`flex items-center gap-2 rounded-xl px-4 py-2.5 w-full transition-all duration-300 ${
           searchFocused ? "bg-card border border-primary/30 shadow-glow" : "bg-secondary/60 border border-transparent"
@@ -64,7 +65,6 @@ const TopNavbar = () => {
           )}
         </div>
 
-        {/* Search Dropdown */}
         <AnimatePresence>
           {searchFocused && searchResults.length > 0 && (
             <motion.div
@@ -84,11 +84,10 @@ const TopNavbar = () => {
         </AnimatePresence>
       </div>
 
-      {/* Right section */}
       <div className="flex items-center gap-3">
         <div className="hidden sm:flex items-center gap-1.5 rounded-xl bg-secondary/60 px-3 py-2 text-xs font-semibold text-foreground">
           <Flame className="h-4 w-4 text-study-warning" />
-          <span>{streak}-day streak</span>
+          <span>{profile?.current_streak ?? 0}-day streak</span>
         </div>
 
         <Button size="icon" variant="ghost" onClick={toggleDarkMode}
@@ -96,45 +95,37 @@ const TopNavbar = () => {
           {darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
         </Button>
 
-        {/* Notifications */}
         <div className="relative">
-          <Button size="icon" variant="ghost" onClick={() => setShowNotifs(!showNotifs)}
-            className="rounded-xl h-9 w-9 text-muted-foreground hover:text-foreground relative">
-            <Bell className="h-4 w-4" />
-            {unreadCount > 0 && <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full gradient-bg" />}
-          </Button>
+          <button
+            onClick={() => setShowProfile(!showProfile)}
+            className="flex items-center gap-2 rounded-xl hover:bg-secondary/60 px-2 py-1.5 transition-all"
+          >
+            <div className="h-8 w-8 rounded-xl gradient-bg flex items-center justify-center text-xs font-bold text-primary-foreground">
+              {initials}
+            </div>
+            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground hidden sm:block" />
+          </button>
 
           <AnimatePresence>
-            {showNotifs && (
+            {showProfile && (
               <motion.div
                 initial={{ opacity: 0, y: -4, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -4, scale: 0.95 }}
-                className="absolute right-0 top-full mt-2 w-72 rounded-xl glass-strong border border-border/40 p-3 shadow-lg z-50"
+                className="absolute right-0 top-full mt-2 w-56 rounded-xl glass-strong border border-border/40 p-3 shadow-lg z-50"
               >
-                <p className="text-xs font-bold text-foreground mb-2">Notifications</p>
-                <div className="space-y-1 max-h-48 overflow-y-auto scrollbar-thin">
-                  {notifications.map((n) => (
-                    <div key={n.id}
-                      onClick={() => markNotificationRead(n.id)}
-                      className={`px-3 py-2 rounded-lg text-xs cursor-pointer transition-colors ${
-                        n.read ? "text-muted-foreground" : "text-foreground bg-primary/5"
-                      } hover:bg-secondary/50`}
-                    >
-                      <p>{n.text}</p>
-                      <p className="text-[10px] text-muted-foreground/60 mt-0.5">{n.time}</p>
-                    </div>
-                  ))}
-                </div>
+                <p className="text-sm font-semibold text-foreground">{profile?.display_name}</p>
+                <p className="text-xs text-muted-foreground mb-3">Level {profile?.level ?? 1} • {profile?.total_xp ?? 0} XP</p>
+                <button
+                  onClick={signOut}
+                  className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-sm text-destructive hover:bg-destructive/10 transition-colors"
+                >
+                  <LogOut className="h-4 w-4" /> Sign Out
+                </button>
               </motion.div>
             )}
           </AnimatePresence>
         </div>
-
-        <button className="flex items-center gap-2 rounded-xl hover:bg-secondary/60 px-2 py-1.5 transition-all">
-          <div className="h-8 w-8 rounded-xl gradient-bg flex items-center justify-center text-xs font-bold text-primary-foreground">S</div>
-          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground hidden sm:block" />
-        </button>
       </div>
     </header>
   );
