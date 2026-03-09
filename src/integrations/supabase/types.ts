@@ -44,6 +44,78 @@ export type Database = {
         }
         Relationships: []
       }
+      assessment_history: {
+        Row: {
+          assessment_type: string
+          attempted: number
+          correct: number
+          created_at: string
+          difficulty: string
+          final_score: number
+          id: string
+          mode: string
+          negative_marks: number | null
+          passed: boolean | null
+          requirements_met: boolean | null
+          score_percentage: number
+          similarity_score: number | null
+          skill: string
+          skill_category: string
+          time_taken_seconds: number | null
+          topic: string
+          total_questions: number
+          unanswered: number
+          user_id: string
+          wrong: number
+        }
+        Insert: {
+          assessment_type: string
+          attempted?: number
+          correct?: number
+          created_at?: string
+          difficulty: string
+          final_score?: number
+          id?: string
+          mode: string
+          negative_marks?: number | null
+          passed?: boolean | null
+          requirements_met?: boolean | null
+          score_percentage?: number
+          similarity_score?: number | null
+          skill: string
+          skill_category: string
+          time_taken_seconds?: number | null
+          topic: string
+          total_questions?: number
+          unanswered?: number
+          user_id: string
+          wrong?: number
+        }
+        Update: {
+          assessment_type?: string
+          attempted?: number
+          correct?: number
+          created_at?: string
+          difficulty?: string
+          final_score?: number
+          id?: string
+          mode?: string
+          negative_marks?: number | null
+          passed?: boolean | null
+          requirements_met?: boolean | null
+          score_percentage?: number
+          similarity_score?: number | null
+          skill?: string
+          skill_category?: string
+          time_taken_seconds?: number | null
+          topic?: string
+          total_questions?: number
+          unanswered?: number
+          user_id?: string
+          wrong?: number
+        }
+        Relationships: []
+      }
       exam_schedule: {
         Row: {
           created_at: string
