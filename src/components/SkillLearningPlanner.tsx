@@ -7,11 +7,13 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   BookOpen, Loader2, Trash2, Check, ChevronDown, ChevronRight,
-  ExternalLink, Clock, GraduationCap, Sparkles,
+  ExternalLink, Clock, GraduationCap, Sparkles, Brain,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import SkillAnalysisView from "./SkillAnalysisView";
 
 const resourceTypeIcon: Record<string, string> = {
   article: "📄",
