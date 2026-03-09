@@ -13,7 +13,7 @@ const THEORY_SKILLS = ["Aptitude", "Logical Reasoning", "Algebra", "Calculus", "
 const HTMLCSS_TOPICS = ["Landing Page", "Navbar Layout", "Profile Card", "Pricing Section", "Product Page", "Dashboard Layout", "Login Page", "Blog Layout"];
 
 interface AssessmentConfig {
-  skillCategory: "programming" | "theory";
+  skillCategory: "programming" | "theory" | "htmlcss";
   skill: string;
   topic: string;
   difficulty: "easy" | "medium" | "hard" | "mixed";
