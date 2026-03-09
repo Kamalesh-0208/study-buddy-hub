@@ -5,19 +5,71 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Code, BookOpen, Zap, GraduationCap, Play, FileCheck, Palette } from "lucide-react";
+import { Code, BookOpen, Zap, GraduationCap, Play, FileCheck, Palette, Database, Brain, MoreHorizontal } from "lucide-react";
 import { motion } from "framer-motion";
 
-const PROGRAMMING_SKILLS = ["C", "C++", "Java", "JavaScript", "React"];
-const THEORY_SKILLS = ["Aptitude", "Logical Reasoning", "Algebra", "Calculus", "Differential Equations", "Data Structures", "DBMS", "Communication Skills"];
-const HTMLCSS_TOPICS = ["Landing Page", "Navbar Layout", "Profile Card", "Pricing Section", "Product Page", "Dashboard Layout", "Login Page", "Blog Layout"];
+type SkillCategory = "programming" | "theory" | "htmlcss" | "database" | "aptitude" | "other";
+
+const CATEGORY_CONFIG: Record<SkillCategory, {
+  label: string;
+  icon: any;
+  description: string;
+  skills: string[];
+  topicPlaceholder: string;
+}> = {
+  theory: {
+    label: "One Mark Questions",
+    icon: BookOpen,
+    description: "MCQ questions with explanations",
+    skills: ["Aptitude", "Logical Reasoning", "Algebra", "Calculus", "Differential Equations", "Data Structures", "DBMS", "Communication Skills"],
+    topicPlaceholder: "e.g. Clocks, Number Series, SQL Queries",
+  },
+  programming: {
+    label: "Programming Language",
+    icon: Code,
+    description: "Coding problems with test cases",
+    skills: ["C", "C++", "Java", "JavaScript", "Python"],
+    topicPlaceholder: "e.g. Loops, Arrays, Functions, OOP",
+  },
+  htmlcss: {
+    label: "Web Development",
+    icon: Palette,
+    description: "Recreate webpage designs & web MCQs",
+    skills: ["HTML/CSS", "JavaScript", "React"],
+    topicPlaceholder: "e.g. Landing Page, Navbar, Components",
+  },
+  database: {
+    label: "Database",
+    icon: Database,
+    description: "SQL practice & database concepts",
+    skills: ["MySQL", "PostgreSQL", "MongoDB"],
+    topicPlaceholder: "e.g. Joins, Subqueries, Indexing, Normalization",
+  },
+  aptitude: {
+    label: "Aptitude",
+    icon: Brain,
+    description: "Problem-solving & quantitative skills",
+    skills: ["Probability", "Time & Work", "Percentages", "Profit & Loss", "Speed & Distance", "Averages", "Ratios", "Permutations"],
+    topicPlaceholder: "e.g. Simple Interest, Age Problems, Mixtures",
+  },
+  other: {
+    label: "Other",
+    icon: MoreHorizontal,
+    description: "Custom skill assessment",
+    skills: [],
+    topicPlaceholder: "e.g. Any topic you want to practice",
+  },
+};
+
+const HTMLCSS_WEBPAGE_TOPICS = ["Landing Page", "Navbar Layout", "Profile Card", "Pricing Section", "Product Page", "Dashboard Layout", "Login Page", "Blog Layout"];
 
 interface AssessmentConfig {
-  skillCategory: "programming" | "theory" | "htmlcss";
+  skillCategory: SkillCategory;
   skill: string;
   topic: string;
   difficulty: "easy" | "medium" | "hard" | "mixed";
   mode: "practice" | "exam";
+  questionType?: "mcq" | "coding" | "theory";
 }
 
 interface Props {
@@ -33,34 +85,39 @@ const AssessmentSetup = ({ onStart, loading }: Props) => {
     topic: "",
     difficulty: "easy",
     mode: "practice",
+    questionType: "mcq",
   });
+  const [customSkill, setCustomSkill] = useState("");
 
-  const skills = config.skillCategory === "programming" ? PROGRAMMING_SKILLS : config.skillCategory === "htmlcss" ? ["HTML/CSS"] : THEORY_SKILLS;
+  const catConfig = CATEGORY_CONFIG[config.skillCategory];
 
   const canProceed = () => {
     if (step === 0) return true;
     if (step === 1) {
-      if (config.skillCategory === "htmlcss") return !!config.topic;
+      if (config.skillCategory === "other") return !!customSkill.trim();
       return !!config.skill;
     }
-    if (step === 2) {
-      if (config.skillCategory === "htmlcss") return true; // optional extra requirements
-      return !!config.topic.trim();
-    }
+    if (step === 2) return !!config.topic.trim();
     if (step === 3) return true;
     if (step === 4) return true;
     return false;
   };
 
   const handleCategoryChange = (v: string) => {
-    const cat = v as AssessmentConfig["skillCategory"];
-    setConfig({ ...config, skillCategory: cat, skill: cat === "htmlcss" ? "HTML/CSS" : "", topic: "" });
+    const cat = v as SkillCategory;
+    setConfig({ ...config, skillCategory: cat, skill: "", topic: "", questionType: "mcq" });
+    setCustomSkill("");
   };
 
   const handleNext = () => {
+    if (step === 1 && config.skillCategory === "other") {
+      setConfig(prev => ({ ...prev, skill: customSkill }));
+    }
     if (step < 4) setStep(step + 1);
     else onStart(config);
   };
+
+  const categories: SkillCategory[] = ["theory", "programming", "htmlcss", "database", "aptitude", "other"];
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -72,6 +129,7 @@ const AssessmentSetup = ({ onStart, loading }: Props) => {
       </div>
 
       <motion.div key={step} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.2 }}>
+        {/* Step 0: Category */}
         {step === 0 && (
           <Card>
             <CardHeader>
@@ -80,111 +138,113 @@ const AssessmentSetup = ({ onStart, loading }: Props) => {
             </CardHeader>
             <CardContent>
               <RadioGroup value={config.skillCategory} onValueChange={handleCategoryChange}>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <Label htmlFor="cat-prog" className="cursor-pointer">
-                    <Card className={`p-4 transition-all ${config.skillCategory === "programming" ? "border-primary bg-primary/5" : "hover:border-muted-foreground/30"}`}>
-                      <div className="flex items-start gap-3">
-                        <RadioGroupItem value="programming" id="cat-prog" />
-                        <div>
-                          <div className="flex items-center gap-2 font-semibold"><Code className="h-4 w-4" /> Programming</div>
-                          <p className="text-xs text-muted-foreground mt-1">Coding problems with test cases</p>
-                        </div>
-                      </div>
-                    </Card>
-                  </Label>
-                  <Label htmlFor="cat-theory" className="cursor-pointer">
-                    <Card className={`p-4 transition-all ${config.skillCategory === "theory" ? "border-primary bg-primary/5" : "hover:border-muted-foreground/30"}`}>
-                      <div className="flex items-start gap-3">
-                        <RadioGroupItem value="theory" id="cat-theory" />
-                        <div>
-                          <div className="flex items-center gap-2 font-semibold"><BookOpen className="h-4 w-4" /> One-Mark / Theory</div>
-                          <p className="text-xs text-muted-foreground mt-1">MCQ questions with explanations</p>
-                        </div>
-                      </div>
-                    </Card>
-                  </Label>
-                  <Label htmlFor="cat-htmlcss" className="cursor-pointer">
-                    <Card className={`p-4 transition-all ${config.skillCategory === "htmlcss" ? "border-primary bg-primary/5" : "hover:border-muted-foreground/30"}`}>
-                      <div className="flex items-start gap-3">
-                        <RadioGroupItem value="htmlcss" id="cat-htmlcss" />
-                        <div>
-                          <div className="flex items-center gap-2 font-semibold"><Palette className="h-4 w-4" /> HTML/CSS</div>
-                          <p className="text-xs text-muted-foreground mt-1">Recreate webpage designs</p>
-                        </div>
-                      </div>
-                    </Card>
-                  </Label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {categories.map(cat => {
+                    const cfg = CATEGORY_CONFIG[cat];
+                    const Icon = cfg.icon;
+                    return (
+                      <Label key={cat} htmlFor={`cat-${cat}`} className="cursor-pointer">
+                        <Card className={`p-4 transition-all h-full ${config.skillCategory === cat ? "border-primary bg-primary/5" : "hover:border-muted-foreground/30"}`}>
+                          <div className="flex items-start gap-3">
+                            <RadioGroupItem value={cat} id={`cat-${cat}`} />
+                            <div>
+                              <div className="flex items-center gap-2 font-semibold text-sm"><Icon className="h-4 w-4" /> {cfg.label}</div>
+                              <p className="text-xs text-muted-foreground mt-1">{cfg.description}</p>
+                            </div>
+                          </div>
+                        </Card>
+                      </Label>
+                    );
+                  })}
                 </div>
               </RadioGroup>
             </CardContent>
           </Card>
         )}
 
-        {step === 1 && config.skillCategory !== "htmlcss" && (
+        {/* Step 1: Skill / Subject selection */}
+        {step === 1 && config.skillCategory !== "other" && (
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><GraduationCap className="h-5 w-5 text-primary" /> Choose Skill</CardTitle>
-              <CardDescription>Select the specific skill to be assessed</CardDescription>
+              <CardTitle className="flex items-center gap-2"><GraduationCap className="h-5 w-5 text-primary" /> Choose {config.skillCategory === "aptitude" ? "Topic Area" : "Skill"}</CardTitle>
+              <CardDescription>Select the specific {catConfig.label.toLowerCase()} to be assessed</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex flex-wrap gap-2">
-                {skills.map(s => (
+                {catConfig.skills.map(s => (
                   <Badge key={s} variant={config.skill === s ? "default" : "outline"} className="cursor-pointer text-sm py-1.5 px-3"
                     onClick={() => setConfig({ ...config, skill: s })}>
                     {s}
                   </Badge>
                 ))}
               </div>
+              {/* For HTML/CSS web dev, show webpage topics if HTML/CSS is selected */}
+              {config.skillCategory === "htmlcss" && config.skill === "HTML/CSS" && (
+                <div className="mt-4">
+                  <p className="text-sm font-medium mb-2">Choose Webpage Type:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {HTMLCSS_WEBPAGE_TOPICS.map(t => (
+                      <Badge key={t} variant={config.topic === t ? "default" : "outline"} className="cursor-pointer text-sm py-1.5 px-3"
+                        onClick={() => setConfig({ ...config, topic: t })}>
+                        {t}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
 
-        {step === 1 && config.skillCategory === "htmlcss" && (
+        {step === 1 && config.skillCategory === "other" && (
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Palette className="h-5 w-5 text-primary" /> Choose Webpage Topic</CardTitle>
-              <CardDescription>Select a webpage design to recreate</CardDescription>
+              <CardTitle className="flex items-center gap-2"><GraduationCap className="h-5 w-5 text-primary" /> Enter Skill Name</CardTitle>
+              <CardDescription>Type the custom skill you want to practice</CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap gap-2">
-                {HTMLCSS_TOPICS.map(t => (
-                  <Badge key={t} variant={config.topic === t ? "default" : "outline"} className="cursor-pointer text-sm py-1.5 px-3"
-                    onClick={() => setConfig({ ...config, topic: t })}>
-                    {t}
-                  </Badge>
-                ))}
+            <CardContent className="space-y-4">
+              <Input placeholder="e.g. Machine Learning, Physics, Economics"
+                value={customSkill} onChange={e => { setCustomSkill(e.target.value); setConfig(prev => ({ ...prev, skill: e.target.value })); }} />
+              <div>
+                <p className="text-sm font-medium mb-2">Question Type:</p>
+                <RadioGroup value={config.questionType || "mcq"} onValueChange={v => setConfig({ ...config, questionType: v as any })}>
+                  <div className="flex gap-3">
+                    {([["mcq", "MCQ"], ["coding", "Coding"], ["theory", "Theory"]] as const).map(([val, label]) => (
+                      <Label key={val} htmlFor={`qt-${val}`} className="cursor-pointer">
+                        <Card className={`p-3 transition-all ${config.questionType === val ? "border-primary bg-primary/5" : ""}`}>
+                          <div className="flex items-center gap-2">
+                            <RadioGroupItem value={val} id={`qt-${val}`} />
+                            <span className="text-sm font-medium">{label}</span>
+                          </div>
+                        </Card>
+                      </Label>
+                    ))}
+                  </div>
+                </RadioGroup>
               </div>
             </CardContent>
           </Card>
         )}
 
-        {step === 2 && config.skillCategory !== "htmlcss" && (
+        {/* Step 2: Topic */}
+        {step === 2 && (
           <Card>
             <CardHeader>
               <CardTitle>Enter Topic</CardTitle>
-              <CardDescription>Specify the topic within {config.skill} you want to practice</CardDescription>
+              <CardDescription>
+                {config.skillCategory === "htmlcss" && config.skill === "HTML/CSS"
+                  ? "Optionally add specific requirements (leave blank for random)"
+                  : `Specify the topic within ${config.skill} you want to practice`}
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <Input placeholder={config.skillCategory === "programming" ? "e.g. Loops, Arrays, Functions" : "e.g. Clocks, Number Series, SQL Queries"}
+              <Input placeholder={catConfig.topicPlaceholder}
                 value={config.topic} onChange={e => setConfig({ ...config, topic: e.target.value })} />
             </CardContent>
           </Card>
         )}
 
-        {step === 2 && config.skillCategory === "htmlcss" && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Additional Requirements</CardTitle>
-              <CardDescription>Optionally add specific requirements (leave blank for random)</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Input placeholder="e.g. Use Flexbox, Add hover effects, Mobile responsive"
-                value={config.topic.includes("Landing Page") || HTMLCSS_TOPICS.includes(config.topic) ? "" : config.topic}
-                onChange={e => setConfig({ ...config, topic: config.topic.split("|")[0] + (e.target.value ? "|" + e.target.value : "") })} />
-            </CardContent>
-          </Card>
-        )}
-
+        {/* Step 3: Difficulty */}
         {step === 3 && (
           <Card>
             <CardHeader>
@@ -209,6 +269,7 @@ const AssessmentSetup = ({ onStart, loading }: Props) => {
           </Card>
         )}
 
+        {/* Step 4: Mode */}
         {step === 4 && (
           <Card>
             <CardHeader>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,13 +8,10 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
 } from "@/components/ui/alert-dialog";
-import { Clock, CheckCircle, XCircle, Code, Send, RotateCcw, Eye, EyeOff, Lock } from "lucide-react";
+import { Clock, CheckCircle, XCircle, Code, Send, RotateCcw, Eye, EyeOff, Lock, Home, BookOpen } from "lucide-react";
 import { motion } from "framer-motion";
 
-interface TestCase {
-  input: string;
-  expected_output: string;
-}
+interface TestCase { input: string; expected_output: string; }
 
 interface Problem {
   title: string;
@@ -31,17 +28,15 @@ interface Problem {
 }
 
 interface Props {
-  assessment: {
-    problems: Problem[];
-    timer_minutes: number;
-    instructions: string;
-  };
+  assessment: { problems: Problem[]; timer_minutes: number; instructions: string; };
   mode: "practice" | "exam";
   skill: string;
   onReset: () => void;
+  onRetry?: () => void;
+  onSaveResult?: (result: any) => void;
 }
 
-const ProgrammingAssessment = ({ assessment, mode, skill, onReset }: Props) => {
+const ProgrammingAssessment = ({ assessment, mode, skill, onReset, onRetry, onSaveResult }: Props) => {
   const { problems, timer_minutes } = assessment;
   const [currentProblem, setCurrentProblem] = useState(0);
   const [code, setCode] = useState<Record<number, string>>({});
@@ -50,36 +45,51 @@ const ProgrammingAssessment = ({ assessment, mode, skill, onReset }: Props) => {
   const [showSolution, setShowSolution] = useState<Record<number, boolean>>({});
   const [timeLeft, setTimeLeft] = useState(timer_minutes * 60);
   const [autoSubmitted, setAutoSubmitted] = useState(false);
+  const [resultSaved, setResultSaved] = useState(false);
+  const startTimeRef = useRef(Date.now());
 
   useEffect(() => {
     if (mode !== "exam" || submitted) return;
-    if (timeLeft <= 0) {
-      setAutoSubmitted(true);
-      handleFinish();
-      return;
-    }
+    if (timeLeft <= 0) { setAutoSubmitted(true); handleFinish(); return; }
     const t = setInterval(() => setTimeLeft(p => p - 1), 1000);
     return () => clearInterval(t);
   }, [mode, submitted, timeLeft]);
 
   const formatTime = (s: number) => `${Math.floor(s / 60).toString().padStart(2, "0")}:${(s % 60).toString().padStart(2, "0")}`;
 
-  const handleFinish = () => {
-    setLocked(true);
-    setSubmitted(true);
-  };
+  const handleFinish = () => { setLocked(true); setSubmitted(true); };
+
+  useEffect(() => {
+    if (submitted && !resultSaved && onSaveResult) {
+      const timeTaken = Math.round((Date.now() - startTimeRef.current) / 1000);
+      const submitted_count = problems.filter((_, i) => code[i]?.trim()).length;
+      onSaveResult({
+        totalQuestions: problems.length,
+        attempted: submitted_count,
+        correct: submitted_count, // Approximation
+        wrong: 0,
+        unanswered: problems.length - submitted_count,
+        scorePercentage: (submitted_count / problems.length) * 100,
+        finalScore: submitted_count,
+        passed: submitted_count > 0,
+        timeTakenSeconds: timeTaken,
+      });
+      setResultSaved(true);
+    }
+  }, [submitted]);
 
   const p = problems[currentProblem];
   const finishLabel = mode === "exam" ? "Finish Test" : "Finish Practice";
+  const timeTaken = Math.round((Date.now() - startTimeRef.current) / 1000);
 
   if (submitted) {
+    const submittedCount = problems.filter((_, i) => code[i]?.trim()).length;
     return (
       <div className="max-w-4xl mx-auto space-y-6">
         {autoSubmitted && (
           <Card className="border-orange-500/50 bg-orange-500/5">
             <CardContent className="pt-4 flex items-center gap-2 text-sm">
-              <Clock className="h-4 w-4 text-orange-500" />
-              <span>Time expired — your code was automatically submitted.</span>
+              <Clock className="h-4 w-4 text-orange-500" /><span>Time expired — code was automatically submitted.</span>
             </CardContent>
           </Card>
         )}
@@ -89,7 +99,22 @@ const ProgrammingAssessment = ({ assessment, mode, skill, onReset }: Props) => {
             <CardTitle className="text-2xl">📝 Assessment Complete</CardTitle>
             <CardDescription>Review your solutions below</CardDescription>
           </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+              <div><div className="text-2xl font-bold">{problems.length}</div><div className="text-xs text-muted-foreground">Total Problems</div></div>
+              <div><div className="text-2xl font-bold text-green-600">{submittedCount}</div><div className="text-xs text-muted-foreground">Submitted</div></div>
+              <div><div className="text-2xl font-bold text-muted-foreground">{problems.length - submittedCount}</div><div className="text-xs text-muted-foreground">Unanswered</div></div>
+              <div><div className="text-2xl font-bold flex items-center justify-center gap-1"><Clock className="h-5 w-5" />{formatTime(timeTaken)}</div><div className="text-xs text-muted-foreground">Time Taken</div></div>
+            </div>
+          </CardContent>
         </Card>
+
+        {/* Action buttons */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <Button onClick={onRetry} variant="default"><RotateCcw className="h-4 w-4 mr-2" /> Retry Practice</Button>
+          <Button onClick={onReset} variant="outline"><BookOpen className="h-4 w-4 mr-2" /> Continue Learning</Button>
+          <Button onClick={onReset} variant="secondary"><Home className="h-4 w-4 mr-2" /> Skill Dashboard</Button>
+        </div>
 
         {problems.map((prob, i) => (
           <Card key={i}>
@@ -111,9 +136,7 @@ const ProgrammingAssessment = ({ assessment, mode, skill, onReset }: Props) => {
                 </h4>
                 <pre className="bg-green-500/5 border border-green-500/20 p-3 rounded-lg text-xs overflow-x-auto font-mono whitespace-pre-wrap">{prob.solution_code}</pre>
               </div>
-              <div className="bg-muted/50 p-3 rounded-lg text-sm">
-                <strong>Explanation:</strong> {prob.solution_explanation}
-              </div>
+              <div className="bg-muted/50 p-3 rounded-lg text-sm"><strong>Explanation:</strong> {prob.solution_explanation}</div>
               <div>
                 <h4 className="text-sm font-semibold mb-1">Common Mistakes:</h4>
                 <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
@@ -134,21 +157,16 @@ const ProgrammingAssessment = ({ assessment, mode, skill, onReset }: Props) => {
             </CardContent>
           </Card>
         ))}
-
-        <Button onClick={onReset} className="w-full"><RotateCcw className="h-4 w-4 mr-2" /> Take Another Assessment</Button>
       </div>
     );
   }
 
   return (
     <div className="max-w-5xl mx-auto space-y-4">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           {problems.map((_, i) => (
-            <Button key={i} variant={i === currentProblem ? "default" : "outline"} size="sm" onClick={() => setCurrentProblem(i)}>
-              Problem {i + 1}
-            </Button>
+            <Button key={i} variant={i === currentProblem ? "default" : "outline"} size="sm" onClick={() => setCurrentProblem(i)}>Problem {i + 1}</Button>
           ))}
           {locked && <Badge variant="secondary" className="text-xs"><Lock className="h-3 w-3 mr-1" /> Locked</Badge>}
         </div>
@@ -160,20 +178,16 @@ const ProgrammingAssessment = ({ assessment, mode, skill, onReset }: Props) => {
           )}
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button variant="destructive" size="sm">
-                <Send className="h-4 w-4 mr-1" /> {finishLabel}
-              </Button>
+              <Button variant="destructive" size="sm"><Send className="h-4 w-4 mr-1" /> {finishLabel}</Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>Are you sure you want to finish?</AlertDialogTitle>
                 <AlertDialogDescription>
                   {problems.some((_, i) => !code[i]?.trim()) && (
-                    <span className="block mb-2 text-orange-500 font-medium">
-                      ⚠ Some problems have no code submitted yet.
-                    </span>
+                    <span className="block mb-2 text-orange-500 font-medium">⚠ Some problems have no code submitted yet.</span>
                   )}
-                  This will submit all your code and end the assessment. You cannot edit your solutions after finishing.
+                  This will submit all your code and end the assessment.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
@@ -186,12 +200,9 @@ const ProgrammingAssessment = ({ assessment, mode, skill, onReset }: Props) => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Problem description */}
         <Card className="lg:max-h-[600px] overflow-auto">
           <CardHeader>
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="capitalize">{p.difficulty_label}</Badge>
-            </div>
+            <div className="flex items-center gap-2"><Badge variant="outline" className="capitalize">{p.difficulty_label}</Badge></div>
             <CardTitle className="text-lg">{p.title}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 text-sm">
@@ -199,7 +210,6 @@ const ProgrammingAssessment = ({ assessment, mode, skill, onReset }: Props) => {
             <div><h4 className="font-semibold">Input Format</h4><p className="text-muted-foreground">{p.input_format}</p></div>
             <div><h4 className="font-semibold">Output Format</h4><p className="text-muted-foreground">{p.output_format}</p></div>
             <div><h4 className="font-semibold">Constraints</h4><p className="text-muted-foreground font-mono text-xs">{p.constraints}</p></div>
-
             {p.sample_tests.map((tc, i) => (
               <div key={i} className="space-y-1">
                 <h4 className="font-semibold">Sample {i + 1}</h4>
@@ -209,7 +219,6 @@ const ProgrammingAssessment = ({ assessment, mode, skill, onReset }: Props) => {
                 </div>
               </div>
             ))}
-
             {mode === "practice" && (
               <div>
                 <Button variant="ghost" size="sm" onClick={() => setShowSolution(prev => ({ ...prev, [currentProblem]: !prev[currentProblem] }))}>
@@ -226,7 +235,6 @@ const ProgrammingAssessment = ({ assessment, mode, skill, onReset }: Props) => {
           </CardContent>
         </Card>
 
-        {/* Code editor */}
         <Card className="flex flex-col">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2"><Code className="h-4 w-4" /> Your Solution ({skill})</CardTitle>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,7 +8,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
 } from "@/components/ui/alert-dialog";
-import { CheckCircle, XCircle, Clock, ArrowLeft, ArrowRight, Send, RotateCcw, Lock } from "lucide-react";
+import { CheckCircle, XCircle, Clock, ArrowLeft, ArrowRight, Send, RotateCcw, Lock, Home, BookOpen } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface Question {
@@ -31,9 +31,11 @@ interface Props {
   };
   mode: "practice" | "exam";
   onReset: () => void;
+  onRetry?: () => void;
+  onSaveResult?: (result: any) => void;
 }
 
-const MCQAssessment = ({ assessment, mode, onReset }: Props) => {
+const MCQAssessment = ({ assessment, mode, onReset, onRetry, onSaveResult }: Props) => {
   const { questions, timer_minutes, pass_mark } = assessment;
   const [current, setCurrent] = useState(0);
   const [answers, setAnswers] = useState<Record<number, string>>({});
@@ -42,8 +44,9 @@ const MCQAssessment = ({ assessment, mode, onReset }: Props) => {
   const [locked, setLocked] = useState(false);
   const [timeLeft, setTimeLeft] = useState(timer_minutes * 60);
   const [autoSubmitted, setAutoSubmitted] = useState(false);
+  const [resultSaved, setResultSaved] = useState(false);
+  const startTimeRef = useRef(Date.now());
 
-  // Timer for exam mode
   useEffect(() => {
     if (mode !== "exam" || submitted) return;
     if (timeLeft <= 0) {
@@ -73,7 +76,8 @@ const MCQAssessment = ({ assessment, mode, onReset }: Props) => {
     const negativeMarks = wrong * 0.25;
     const finalScore = correct - negativeMarks;
     const attempted = questions.length - unattempted;
-    return { correct, wrong, unattempted, attempted, negativeMarks, finalScore, total: questions.length, passed: finalScore >= pass_mark };
+    const scorePercentage = questions.length > 0 ? (correct / questions.length) * 100 : 0;
+    return { correct, wrong, unattempted, attempted, negativeMarks, finalScore, scorePercentage, total: questions.length, passed: finalScore >= pass_mark };
   }, [answers, questions, pass_mark]);
 
   const handleFinish = () => {
@@ -81,7 +85,29 @@ const MCQAssessment = ({ assessment, mode, onReset }: Props) => {
     setSubmitted(true);
   };
 
+  // Save result when submitted
+  useEffect(() => {
+    if (submitted && !resultSaved && onSaveResult) {
+      const result = calculateScore();
+      const timeTaken = Math.round((Date.now() - startTimeRef.current) / 1000);
+      onSaveResult({
+        totalQuestions: result.total,
+        attempted: result.attempted,
+        correct: result.correct,
+        wrong: result.wrong,
+        unanswered: result.unattempted,
+        scorePercentage: result.scorePercentage,
+        finalScore: result.finalScore,
+        negativeMarks: result.negativeMarks,
+        passed: result.passed,
+        timeTakenSeconds: timeTaken,
+      });
+      setResultSaved(true);
+    }
+  }, [submitted]);
+
   const formatTime = (s: number) => `${Math.floor(s / 60).toString().padStart(2, "0")}:${(s % 60).toString().padStart(2, "0")}`;
+  const timeTaken = Math.round((Date.now() - startTimeRef.current) / 1000);
 
   const q = questions[current];
   const result = submitted ? calculateScore() : null;
@@ -90,7 +116,6 @@ const MCQAssessment = ({ assessment, mode, onReset }: Props) => {
   if (submitted && result) {
     return (
       <div className="max-w-3xl mx-auto space-y-6">
-        {/* Auto-submit notice */}
         {autoSubmitted && (
           <Card className="border-orange-500/50 bg-orange-500/5">
             <CardContent className="pt-4 flex items-center gap-2 text-sm">
@@ -100,20 +125,21 @@ const MCQAssessment = ({ assessment, mode, onReset }: Props) => {
           </Card>
         )}
 
-        {/* Result Card */}
         <Card className={result.passed ? "border-green-500/50" : "border-destructive/50"}>
           <CardHeader className="text-center">
             <CardTitle className="text-2xl">{result.passed ? "🎉 PASSED" : "❌ FAILED"}</CardTitle>
             <CardDescription>Assessment Result</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-center">
-              <div><div className="text-2xl font-bold">{result.total}</div><div className="text-xs text-muted-foreground">Total Questions</div></div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+              <div><div className="text-2xl font-bold">{result.total}</div><div className="text-xs text-muted-foreground">Total</div></div>
               <div><div className="text-2xl font-bold">{result.attempted}</div><div className="text-xs text-muted-foreground">Attempted</div></div>
               <div><div className="text-2xl font-bold text-green-600">{result.correct}</div><div className="text-xs text-muted-foreground">Correct</div></div>
               <div><div className="text-2xl font-bold text-destructive">{result.wrong}</div><div className="text-xs text-muted-foreground">Wrong</div></div>
               <div><div className="text-2xl font-bold text-muted-foreground">{result.unattempted}</div><div className="text-xs text-muted-foreground">Unanswered</div></div>
               <div><div className="text-2xl font-bold text-orange-500">-{result.negativeMarks.toFixed(2)}</div><div className="text-xs text-muted-foreground">Negative Marks</div></div>
+              <div><div className="text-2xl font-bold">{result.scorePercentage.toFixed(0)}%</div><div className="text-xs text-muted-foreground">Score %</div></div>
+              <div><div className="text-2xl font-bold flex items-center justify-center gap-1"><Clock className="h-5 w-5" />{formatTime(timeTaken)}</div><div className="text-xs text-muted-foreground">Time Taken</div></div>
             </div>
             <div className="mt-4 pt-4 border-t text-center">
               <div className="text-3xl font-bold">{result.finalScore.toFixed(2)}<span className="text-lg text-muted-foreground">/{result.total}</span></div>
@@ -124,6 +150,19 @@ const MCQAssessment = ({ assessment, mode, onReset }: Props) => {
             </div>
           </CardContent>
         </Card>
+
+        {/* Action buttons */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <Button onClick={onRetry} variant="default" className="w-full">
+            <RotateCcw className="h-4 w-4 mr-2" /> Retry Practice
+          </Button>
+          <Button onClick={onReset} variant="outline" className="w-full">
+            <BookOpen className="h-4 w-4 mr-2" /> Continue Learning
+          </Button>
+          <Button onClick={onReset} variant="secondary" className="w-full">
+            <Home className="h-4 w-4 mr-2" /> Skill Dashboard
+          </Button>
+        </div>
 
         {/* Review */}
         <Card>
@@ -160,15 +199,12 @@ const MCQAssessment = ({ assessment, mode, onReset }: Props) => {
             </ScrollArea>
           </CardContent>
         </Card>
-
-        <Button onClick={onReset} className="w-full"><RotateCcw className="h-4 w-4 mr-2" /> Take Another Assessment</Button>
       </div>
     );
   }
 
   return (
     <div className="max-w-3xl mx-auto space-y-4">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="text-sm text-muted-foreground">
           Question {current + 1} / {questions.length}
@@ -184,7 +220,6 @@ const MCQAssessment = ({ assessment, mode, onReset }: Props) => {
       </div>
       <Progress value={((current + 1) / questions.length) * 100} className="h-1.5" />
 
-      {/* Question */}
       <AnimatePresence mode="wait">
         <motion.div key={current} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }}>
           <Card>
@@ -231,7 +266,6 @@ const MCQAssessment = ({ assessment, mode, onReset }: Props) => {
         </motion.div>
       </AnimatePresence>
 
-      {/* Navigation */}
       <div className="flex justify-between">
         <Button variant="outline" size="sm" onClick={() => setCurrent(Math.max(0, current - 1))} disabled={current === 0}>
           <ArrowLeft className="h-4 w-4 mr-1" /> Prev
@@ -252,7 +286,7 @@ const MCQAssessment = ({ assessment, mode, onReset }: Props) => {
                       ⚠ You have {questions.length - Object.keys(answers).length} unanswered question(s).
                     </span>
                   )}
-                  This will submit all your answers and end the assessment. You cannot make changes after finishing.
+                  This will submit all your answers and end the assessment.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
@@ -269,7 +303,6 @@ const MCQAssessment = ({ assessment, mode, onReset }: Props) => {
         </div>
       </div>
 
-      {/* Question navigator grid */}
       {mode === "exam" && (
         <Card className="p-3">
           <div className="flex flex-wrap gap-1.5">
