@@ -97,6 +97,45 @@ export type Database = {
           },
         ]
       }
+      leaderboard_snapshots: {
+        Row: {
+          created_at: string
+          current_streak: number | null
+          id: string
+          rank: number | null
+          score: number | null
+          snapshot_date: string
+          tasks_completed: number | null
+          user_id: string
+          weekly_study_minutes: number | null
+          xp_total: number
+        }
+        Insert: {
+          created_at?: string
+          current_streak?: number | null
+          id?: string
+          rank?: number | null
+          score?: number | null
+          snapshot_date?: string
+          tasks_completed?: number | null
+          user_id: string
+          weekly_study_minutes?: number | null
+          xp_total?: number
+        }
+        Update: {
+          created_at?: string
+          current_streak?: number | null
+          id?: string
+          rank?: number | null
+          score?: number | null
+          snapshot_date?: string
+          tasks_completed?: number | null
+          user_id?: string
+          weekly_study_minutes?: number | null
+          xp_total?: number
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -190,6 +229,7 @@ export type Database = {
           end_time: string
           focus_score: number | null
           id: string
+          session_type: string | null
           start_time: string
           subject_id: string | null
           user_id: string
@@ -201,6 +241,7 @@ export type Database = {
           end_time: string
           focus_score?: number | null
           id?: string
+          session_type?: string | null
           start_time: string
           subject_id?: string | null
           user_id: string
@@ -212,6 +253,7 @@ export type Database = {
           end_time?: string
           focus_score?: number | null
           id?: string
+          session_type?: string | null
           start_time?: string
           subject_id?: string | null
           user_id?: string
@@ -350,6 +392,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      xp_log: {
+        Row: {
+          created_at: string
+          id: string
+          source: string
+          source_id: string | null
+          user_id: string
+          xp_amount: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          source: string
+          source_id?: string | null
+          user_id: string
+          xp_amount: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          source?: string
+          source_id?: string | null
+          user_id?: string
+          xp_amount?: number
+        }
+        Relationships: []
       }
     }
     Views: {
