@@ -402,19 +402,33 @@ Generate ALL of the following:
       }
     }
 
-    const [topicsData, analysisData] = await Promise.all([topicsResponse.json(), analysisResponse.json()]);
+    const [topicsData, analysisData, extendedData] = await Promise.all([
+      topicsResponse.json(), analysisResponse.json(), extendedResponse.json(),
+    ]);
 
     const topicsToolCall = topicsData.choices?.[0]?.message?.tool_calls?.[0];
     if (!topicsToolCall) throw new Error("No plan generated");
     const plan = JSON.parse(topicsToolCall.function.arguments);
 
-    let analysisResult = null;
+    let analysisResult: any = null;
     const analysisToolCall = analysisData.choices?.[0]?.message?.tool_calls?.[0];
     if (analysisToolCall) {
       try {
         analysisResult = JSON.parse(analysisToolCall.function.arguments);
       } catch (e) {
         console.error("Failed to parse analysis:", e);
+      }
+    }
+
+    // Parse extended mastery content and merge into analysis
+    const extendedToolCall = extendedData.choices?.[0]?.message?.tool_calls?.[0];
+    if (extendedToolCall && analysisResult) {
+      try {
+        const extendedResult = JSON.parse(extendedToolCall.function.arguments);
+        // Merge extended content into analysis_data
+        analysisResult = { ...analysisResult, ...extendedResult };
+      } catch (e) {
+        console.error("Failed to parse extended mastery:", e);
       }
     }
 
