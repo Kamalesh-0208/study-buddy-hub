@@ -53,21 +53,24 @@ REQUIREMENTS:
 
 Provide real, working URLs for resources (use well-known sites like MDN, W3Schools, GeeksforGeeks, tutorialspoint, youtube.com, docs.python.org, cprogramming.com, etc.)`;
 
-    // Call 2: Generate comprehensive skill analysis
-    const analysisPrompt = `You are a Career Architect and Skill Analyst. Analyze the skill "${skill_name}"${specific_topic ? ` (focus: ${specific_topic})` : ""} for a ${experience_level} learner.
+    // Call 2: Generate comprehensive student-focused skill analysis
+    const analysisPrompt = `You are an AI Learning Architect and Student Skill Mastery Guide. Analyze the skill "${skill_name}"${specific_topic ? ` (focus: ${specific_topic})` : ""} for a ${experience_level} student.
 
-Produce a comprehensive analysis covering ALL of the following sections:
+Focus ONLY on learning, understanding, and mastering the skill. This is for students, not professionals.
 
-1. SKILL OVERVIEW: What it is, where used, why valuable, career opportunities
-2. DIFFICULTY ANALYSIS: Rate 1-10 for conceptual_difficulty, technical_complexity, learning_curve, time_to_master, job_market_competition. Provide overall_score, classification (Beginner/Intermediate/Advanced), estimated_weeks
-3. PREREQUISITES: absolute_prerequisites (required before learning) and helpful_skills (supporting)
-4. LEARNING STAGES: 6 stages (Foundations, Core Concepts, Practical Implementation, Advanced Techniques, Real-World Applications, Professional Level) - each with topics, key_concepts, tools, exercises
-5. PROJECTS: 3 beginner, 3 intermediate, 3 advanced, 1 portfolio project - each with name, description, what_it_teaches
-6. TIMELINE: 30_day, 90_day, 6_month milestones
-7. RESOURCES: courses, books, youtube_channels, websites, practice_platforms (name + url)
-8. COMMON MISTAKES: list of mistakes with how_to_avoid
-9. CAREER PATHS: jobs, freelance, startup, earn_online opportunities
-10. SKILL COMPARISON: Compare with 3 related skills on ease, demand, pay`;
+Produce a comprehensive student-focused analysis covering ALL sections:
+
+1. SKILL OVERVIEW: What the skill is (simple explanation), why useful to learn, where used in real life, examples of things that can be built
+2. DIFFICULTY ANALYSIS: Rate 1-10 for concept_difficulty, technical_difficulty, learning_curve, time_to_learn. Provide overall_score, classification (Beginner/Intermediate/Advanced), estimated_weeks
+3. PREREQUISITES: core prerequisites (must know before starting, with reasons) and helpful supporting knowledge (with reasons)
+4. LEARNING ROADMAP: 5 stages (Foundations, Core Concepts, Practical Practice, Advanced Understanding, Mastery) - each with topics, key_concepts, practice_exercises
+5. SKILL TREE: A text-based tree showing how the skill grows from beginner to advanced (use ├── and └── formatting)
+6. PRACTICE PROJECTS: 3 beginner, 3 intermediate, 2 advanced projects - each with name, description, what_it_teaches
+7. LEARNING TIMELINE (assuming 1-2 hours/day): 30-day plan, 90-day plan, 6-month mastery plan with milestones
+8. TOOLS NEEDED: beginner tools and advanced tools, each with name and what it's used for
+9. BEST LEARNING RESOURCES: beginner-friendly courses, youtube channels, books, websites, practice platforms (name + url)
+10. COMMON BEGINNER MISTAKES: mistakes students make and how to avoid them
+11. STUDY TIPS: strategies for faster learning and better retention`;
 
     const aiHeaders = {
       Authorization: `Bearer ${LOVABLE_API_KEY}`,
@@ -143,7 +146,7 @@ Produce a comprehensive analysis covering ALL of the following sections:
             type: "function",
             function: {
               name: "skill_analysis",
-              description: "Comprehensive skill analysis with difficulty, prerequisites, projects, career paths",
+              description: "Student-focused skill mastery guide with difficulty, prerequisites, skill tree, projects, study tips",
               parameters: {
                 type: "object",
                 properties: {
@@ -151,35 +154,34 @@ Produce a comprehensive analysis covering ALL of the following sections:
                     type: "object",
                     properties: {
                       what_it_is: { type: "string" },
+                      why_useful: { type: "string" },
                       where_used: { type: "string" },
-                      why_valuable: { type: "string" },
-                      career_opportunities: { type: "array", items: { type: "string" } },
+                      build_examples: { type: "array", items: { type: "string" } },
                     },
-                    required: ["what_it_is", "where_used", "why_valuable", "career_opportunities"],
+                    required: ["what_it_is", "why_useful", "where_used", "build_examples"],
                     additionalProperties: false,
                   },
                   difficulty: {
                     type: "object",
                     properties: {
-                      conceptual_difficulty: { type: "integer", minimum: 1, maximum: 10 },
-                      technical_complexity: { type: "integer", minimum: 1, maximum: 10 },
+                      concept_difficulty: { type: "integer", minimum: 1, maximum: 10 },
+                      technical_difficulty: { type: "integer", minimum: 1, maximum: 10 },
                       learning_curve: { type: "integer", minimum: 1, maximum: 10 },
-                      time_to_master: { type: "integer", minimum: 1, maximum: 10 },
-                      job_market_competition: { type: "integer", minimum: 1, maximum: 10 },
+                      time_to_learn: { type: "integer", minimum: 1, maximum: 10 },
                       overall_score: { type: "number" },
                       classification: { type: "string" },
                       estimated_weeks: { type: "integer" },
                     },
-                    required: ["conceptual_difficulty", "technical_complexity", "learning_curve", "time_to_master", "job_market_competition", "overall_score", "classification", "estimated_weeks"],
+                    required: ["concept_difficulty", "technical_difficulty", "learning_curve", "time_to_learn", "overall_score", "classification", "estimated_weeks"],
                     additionalProperties: false,
                   },
                   prerequisites: {
                     type: "object",
                     properties: {
-                      absolute: { type: "array", items: { type: "string" } },
-                      helpful: { type: "array", items: { type: "string" } },
+                      core: { type: "array", items: { type: "object", properties: { name: { type: "string" }, reason: { type: "string" } }, required: ["name", "reason"], additionalProperties: false } },
+                      helpful: { type: "array", items: { type: "object", properties: { name: { type: "string" }, reason: { type: "string" } }, required: ["name", "reason"], additionalProperties: false } },
                     },
-                    required: ["absolute", "helpful"],
+                    required: ["core", "helpful"],
                     additionalProperties: false,
                   },
                   stages: {
@@ -190,22 +192,21 @@ Produce a comprehensive analysis covering ALL of the following sections:
                         name: { type: "string" },
                         topics: { type: "array", items: { type: "string" } },
                         key_concepts: { type: "array", items: { type: "string" } },
-                        tools: { type: "array", items: { type: "string" } },
-                        exercises: { type: "array", items: { type: "string" } },
+                        practice_exercises: { type: "array", items: { type: "string" } },
                       },
-                      required: ["name", "topics", "key_concepts", "tools", "exercises"],
+                      required: ["name", "topics", "key_concepts", "practice_exercises"],
                       additionalProperties: false,
                     },
                   },
+                  skill_tree: { type: "string", description: "Text-based skill tree using ├── └── formatting showing progression from beginner to advanced" },
                   projects: {
                     type: "object",
                     properties: {
                       beginner: { type: "array", items: { type: "object", properties: { name: { type: "string" }, description: { type: "string" }, teaches: { type: "string" } }, required: ["name", "description", "teaches"], additionalProperties: false } },
                       intermediate: { type: "array", items: { type: "object", properties: { name: { type: "string" }, description: { type: "string" }, teaches: { type: "string" } }, required: ["name", "description", "teaches"], additionalProperties: false } },
                       advanced: { type: "array", items: { type: "object", properties: { name: { type: "string" }, description: { type: "string" }, teaches: { type: "string" } }, required: ["name", "description", "teaches"], additionalProperties: false } },
-                      portfolio: { type: "object", properties: { name: { type: "string" }, description: { type: "string" }, teaches: { type: "string" } }, required: ["name", "description", "teaches"], additionalProperties: false },
                     },
-                    required: ["beginner", "intermediate", "advanced", "portfolio"],
+                    required: ["beginner", "intermediate", "advanced"],
                     additionalProperties: false,
                   },
                   timeline: {
@@ -216,6 +217,15 @@ Produce a comprehensive analysis covering ALL of the following sections:
                       six_months: { type: "string" },
                     },
                     required: ["thirty_days", "ninety_days", "six_months"],
+                    additionalProperties: false,
+                  },
+                  tools: {
+                    type: "object",
+                    properties: {
+                      beginner: { type: "array", items: { type: "object", properties: { name: { type: "string" }, used_for: { type: "string" } }, required: ["name", "used_for"], additionalProperties: false } },
+                      advanced: { type: "array", items: { type: "object", properties: { name: { type: "string" }, used_for: { type: "string" } }, required: ["name", "used_for"], additionalProperties: false } },
+                    },
+                    required: ["beginner", "advanced"],
                     additionalProperties: false,
                   },
                   resources: {
@@ -242,34 +252,20 @@ Produce a comprehensive analysis covering ALL of the following sections:
                       additionalProperties: false,
                     },
                   },
-                  career_paths: {
-                    type: "object",
-                    properties: {
-                      jobs: { type: "array", items: { type: "string" } },
-                      freelance: { type: "array", items: { type: "string" } },
-                      startup: { type: "array", items: { type: "string" } },
-                      earn_online: { type: "array", items: { type: "string" } },
-                    },
-                    required: ["jobs", "freelance", "startup", "earn_online"],
-                    additionalProperties: false,
-                  },
-                  skill_comparison: {
+                  study_tips: {
                     type: "array",
                     items: {
                       type: "object",
                       properties: {
-                        skill_name: { type: "string" },
-                        easier: { type: "boolean" },
-                        more_in_demand: { type: "boolean" },
-                        pays_more: { type: "boolean" },
-                        notes: { type: "string" },
+                        tip: { type: "string" },
+                        explanation: { type: "string" },
                       },
-                      required: ["skill_name", "easier", "more_in_demand", "pays_more", "notes"],
+                      required: ["tip", "explanation"],
                       additionalProperties: false,
                     },
                   },
                 },
-                required: ["overview", "difficulty", "prerequisites", "stages", "projects", "timeline", "resources", "common_mistakes", "career_paths", "skill_comparison"],
+                required: ["overview", "difficulty", "prerequisites", "stages", "skill_tree", "projects", "timeline", "tools", "resources", "common_mistakes", "study_tips"],
                 additionalProperties: false,
               },
             },
