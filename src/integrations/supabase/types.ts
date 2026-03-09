@@ -44,6 +44,53 @@ export type Database = {
         }
         Relationships: []
       }
+      focus_activity: {
+        Row: {
+          created_at: string
+          distraction_events: number | null
+          focus_score: number | null
+          id: string
+          idle_time_seconds: number | null
+          pause_count: number | null
+          session_id: string | null
+          tab_switch_count: number | null
+          time_away_seconds: number | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          distraction_events?: number | null
+          focus_score?: number | null
+          id?: string
+          idle_time_seconds?: number | null
+          pause_count?: number | null
+          session_id?: string | null
+          tab_switch_count?: number | null
+          time_away_seconds?: number | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          distraction_events?: number | null
+          focus_score?: number | null
+          id?: string
+          idle_time_seconds?: number | null
+          pause_count?: number | null
+          session_id?: string | null
+          tab_switch_count?: number | null
+          time_away_seconds?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "focus_activity_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "study_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       goals: {
         Row: {
           completed: boolean | null
@@ -215,6 +262,59 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "study_materials_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      study_plans: {
+        Row: {
+          completed: boolean | null
+          created_at: string
+          id: string
+          locked: boolean | null
+          plan_date: string
+          priority: string | null
+          reason: string | null
+          recommended_minutes: number
+          subject_id: string | null
+          subject_name: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed?: boolean | null
+          created_at?: string
+          id?: string
+          locked?: boolean | null
+          plan_date: string
+          priority?: string | null
+          reason?: string | null
+          recommended_minutes?: number
+          subject_id?: string | null
+          subject_name?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed?: boolean | null
+          created_at?: string
+          id?: string
+          locked?: boolean | null
+          plan_date?: string
+          priority?: string | null
+          reason?: string | null
+          recommended_minutes?: number
+          subject_id?: string | null
+          subject_name?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "study_plans_subject_id_fkey"
             columns: ["subject_id"]
             isOneToOne: false
             referencedRelation: "subjects"

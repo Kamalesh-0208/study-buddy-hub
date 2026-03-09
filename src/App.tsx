@@ -15,6 +15,7 @@ import LeaderboardPage from "./pages/LeaderboardPage";
 import SettingsPage from "./pages/SettingsPage";
 import AuthPage from "./pages/AuthPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
+import PlannerPage from "./pages/PlannerPage";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -60,6 +61,7 @@ const App = () => (
               <Route path="/analytics" element={<AnalyticsPage />} />
               <Route path="/goals" element={<GoalsPage />} />
               <Route path="/leaderboard" element={<LeaderboardPage />} />
+              <Route path="/planner" element={<PlannerPage />} />
               <Route path="/settings" element={<SettingsPage />} />
             </Route>
             <Route path="*" element={<NotFound />} />
