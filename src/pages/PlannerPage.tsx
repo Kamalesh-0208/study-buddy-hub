@@ -167,6 +167,9 @@ const PlannerPage = () => {
           );
         })}
       </div>
+
+      {/* Skill Learning Planner */}
+      <SkillLearningPlanner />
     </motion.div>
   );
 };
