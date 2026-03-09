@@ -368,6 +368,7 @@ export type Database = {
       }
       skill_plans: {
         Row: {
+          analysis_data: Json | null
           created_at: string
           daily_hours: number
           experience_level: string | null
@@ -382,6 +383,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          analysis_data?: Json | null
           created_at?: string
           daily_hours?: number
           experience_level?: string | null
@@ -396,6 +398,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          analysis_data?: Json | null
           created_at?: string
           daily_hours?: number
           experience_level?: string | null

@@ -1,0 +1,1 @@
+ALTER TABLE public.skill_plans ADD COLUMN analysis_data jsonb DEFAULT NULL;
