@@ -1,17 +1,19 @@
 import { motion } from "framer-motion";
 import { useAuth } from "@/hooks/useAuth";
 import { useSessions } from "@/hooks/useSessions";
+import { useAnalytics } from "@/hooks/useAnalytics";
 import SmartFocus from "@/components/SmartFocus";
 import TaskPlanner from "@/components/TaskPlanner";
 import StudyMaterialsHub from "@/components/StudyMaterialsHub";
-import PerformanceAnalytics from "@/components/PerformanceAnalytics";
 import Gamification from "@/components/Gamification";
 import AIInsights from "@/components/AIInsights";
 import StatsGrid from "@/components/StatsGrid";
+import StudyHeatmap from "@/components/StudyHeatmap";
 
 const Index = () => {
   const { profile } = useAuth();
   const { sessions } = useSessions();
+  const { momentumScore } = useAnalytics();
   const totalHours = Math.round((sessions.reduce((sum, s) => sum + s.duration_seconds, 0) / 3600) * 10) / 10;
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
@@ -23,7 +25,8 @@ const Index = () => {
           {greeting}, {profile?.display_name?.split(" ")[0] ?? "Student"} 👋
         </h2>
         <p className="text-sm text-muted-foreground mt-1">
-          You've studied <span className="font-semibold text-primary">{totalHours} hours</span> total. Keep the momentum going!
+          You've studied <span className="font-semibold text-primary">{totalHours} hours</span> total
+          {momentumScore > 0 && <> · Momentum: <span className="font-semibold text-primary">{Math.round(momentumScore)}</span></>}
         </p>
       </motion.div>
 
@@ -40,7 +43,7 @@ const Index = () => {
         <AIInsights />
       </div>
 
-      <PerformanceAnalytics />
+      <StudyHeatmap />
     </div>
   );
 };

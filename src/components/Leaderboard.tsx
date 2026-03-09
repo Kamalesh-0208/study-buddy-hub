@@ -1,15 +1,95 @@
+import { useState } from "react";
 import { useLeaderboard } from "@/hooks/useLeaderboard";
 import { motion } from "framer-motion";
 import { Trophy, Medal, Crown, Flame, TrendingUp } from "lucide-react";
+
+type Filter = "global" | "weekly" | "monthly";
+
 const Leaderboard = () => {
-  const { leaderboard, isLoading, currentUserId } = useLeaderboard();
-  const sorted = [...leaderboard].sort((a, b) => (b.total_xp ?? 0) - (a.total_xp ?? 0));
+  const [filter, setFilter] = useState<Filter>("global");
+  const { leaderboard, isLoading, currentUserId } = useLeaderboard(filter);
+  const sorted = [...leaderboard].sort((a, b) => (b.score ?? b.total_xp ?? 0) - (a.score ?? a.total_xp ?? 0));
+
+  const filters: { value: Filter; label: string }[] = [
+    { value: "global", label: "All Time" },
+    { value: "weekly", label: "Weekly" },
+    { value: "monthly", label: "Monthly" },
+  ];
+
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-extrabold text-foreground tracking-tight">Leaderboard</h2>
-      {sorted.length >= 3 && (<div className="flex items-end justify-center gap-4 mb-8">{[sorted[1], sorted[0], sorted[2]].map((user, i) => { const rank = i === 0 ? 2 : i === 1 ? 1 : 3; const heights = ["h-24", "h-32", "h-20"]; const isYou = user.user_id === currentUserId; return (<motion.div key={user.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }} className="flex flex-col items-center"><div className={`h-12 w-12 rounded-2xl gradient-bg flex items-center justify-center text-lg font-bold text-primary-foreground mb-2 ${isYou ? "ring-2 ring-primary ring-offset-2" : ""}`}>{(user.display_name ?? "U").charAt(0).toUpperCase()}</div><p className="text-xs font-semibold text-foreground truncate max-w-[80px]">{isYou ? "You" : user.display_name ?? "User"}</p><p className="text-[10px] text-muted-foreground">{(user.total_xp ?? 0).toLocaleString()} XP</p><div className={`${heights[i]} w-20 rounded-t-xl bg-secondary/60 mt-2 flex items-start justify-center pt-2`}>{rank === 1 ? <Crown className="h-5 w-5 text-study-warning" /> : rank === 2 ? <Medal className="h-5 w-5 text-muted-foreground" /> : <Trophy className="h-5 w-5 text-study-info" />}</div></motion.div>); })}</div>)}
-      <div className="rounded-2xl glass-strong p-6"><div className="space-y-2">{sorted.map((user, i) => { const isYou = user.user_id === currentUserId; return (<motion.div key={user.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }} className={`flex items-center gap-4 rounded-xl p-3 transition-colors ${isYou ? "bg-primary/5 border border-primary/20" : "hover:bg-secondary/50"}`}><span className="text-sm font-bold text-muted-foreground w-6 text-center">#{i + 1}</span><div className="h-9 w-9 rounded-xl gradient-bg flex items-center justify-center text-sm font-bold text-primary-foreground">{(user.display_name ?? "U").charAt(0).toUpperCase()}</div><div className="flex-1"><p className="text-sm font-semibold text-foreground">{isYou ? "You" : user.display_name ?? "User"}</p><div className="flex items-center gap-3 mt-0.5"><span className="text-[10px] text-muted-foreground flex items-center gap-0.5"><TrendingUp className="h-2.5 w-2.5" /> Lvl {user.level ?? 1}</span><span className="text-[10px] text-muted-foreground flex items-center gap-0.5"><Flame className="h-2.5 w-2.5" /> {user.current_streak ?? 0}d</span></div></div><span className="text-sm font-bold text-primary">{(user.total_xp ?? 0).toLocaleString()} XP</span></motion.div>); })}</div>{sorted.length === 0 && !isLoading && <p className="text-sm text-muted-foreground text-center py-8">No users yet. Start studying to appear on the leaderboard!</p>}</div>
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-extrabold text-foreground tracking-tight">Leaderboard</h2>
+        <div className="flex gap-1">
+          {filters.map((f) => (
+            <button
+              key={f.value}
+              onClick={() => setFilter(f.value)}
+              className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
+                filter === f.value ? "bg-primary/10 text-primary" : "bg-secondary/60 text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {sorted.length >= 3 && (
+        <div className="flex items-end justify-center gap-4 mb-8">
+          {[sorted[1], sorted[0], sorted[2]].map((user, i) => {
+            const rank = i === 0 ? 2 : i === 1 ? 1 : 3;
+            const heights = ["h-24", "h-32", "h-20"];
+            const isYou = user.user_id === currentUserId;
+            return (
+              <motion.div key={user.id ?? i} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }} className="flex flex-col items-center">
+                <div className={`h-12 w-12 rounded-2xl gradient-bg flex items-center justify-center text-lg font-bold text-primary-foreground mb-2 ${isYou ? "ring-2 ring-primary ring-offset-2" : ""}`}>
+                  {(user.display_name ?? "U").charAt(0).toUpperCase()}
+                </div>
+                <p className="text-xs font-semibold text-foreground truncate max-w-[80px]">{isYou ? "You" : user.display_name ?? "User"}</p>
+                <p className="text-[10px] text-muted-foreground">{Math.round(user.score ?? user.total_xp ?? 0).toLocaleString()} pts</p>
+                <div className={`${heights[i]} w-20 rounded-t-xl bg-secondary/60 mt-2 flex items-start justify-center pt-2`}>
+                  {rank === 1 ? <Crown className="h-5 w-5 text-study-warning" /> : rank === 2 ? <Medal className="h-5 w-5 text-muted-foreground" /> : <Trophy className="h-5 w-5 text-study-info" />}
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+      )}
+
+      <div className="rounded-2xl glass-strong p-6">
+        <div className="space-y-2">
+          {sorted.map((user, i) => {
+            const isYou = user.user_id === currentUserId;
+            return (
+              <motion.div key={user.id ?? i} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }}
+                className={`flex items-center gap-4 rounded-xl p-3 transition-colors ${isYou ? "bg-primary/5 border border-primary/20" : "hover:bg-secondary/50"}`}>
+                <span className="text-sm font-bold text-muted-foreground w-6 text-center">#{i + 1}</span>
+                <div className="h-9 w-9 rounded-xl gradient-bg flex items-center justify-center text-sm font-bold text-primary-foreground">
+                  {(user.display_name ?? "U").charAt(0).toUpperCase()}
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-foreground">{isYou ? "You" : user.display_name ?? "User"}</p>
+                  <div className="flex items-center gap-3 mt-0.5">
+                    <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                      <TrendingUp className="h-2.5 w-2.5" /> Lvl {user.level ?? 1}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                      <Flame className="h-2.5 w-2.5" /> {user.current_streak ?? 0}d
+                    </span>
+                  </div>
+                </div>
+                <span className="text-sm font-bold text-primary">{Math.round(user.score ?? user.total_xp ?? 0).toLocaleString()} pts</span>
+              </motion.div>
+            );
+          })}
+        </div>
+        {sorted.length === 0 && !isLoading && (
+          <p className="text-sm text-muted-foreground text-center py-8">No users yet. Start studying to appear on the leaderboard!</p>
+        )}
+      </div>
     </div>
   );
 };
+
 export default Leaderboard;

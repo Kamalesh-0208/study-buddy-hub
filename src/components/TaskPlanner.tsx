@@ -47,22 +47,25 @@ const TaskPlanner = () => {
 
   const handleToggle = async (id: string, completed: boolean) => {
     toggleTask.mutate({ id, completed });
-    // Award XP for completing a task
+    // Award 50 XP for completing a task + log it
     if (!completed && user) {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("total_xp, level")
-        .eq("user_id", user.id)
-        .single();
-      if (profile) {
-        const newXP = (profile.total_xp ?? 0) + 50;
-        await supabase.from("profiles").update({
-          total_xp: newXP,
-          level: Math.floor(newXP / 250) + 1,
-        }).eq("user_id", user.id);
-        qc.invalidateQueries({ queryKey: ["profile"] });
-        qc.invalidateQueries({ queryKey: ["leaderboard"] });
-      }
+      await supabase.from("xp_log").insert({
+        user_id: user.id, xp_amount: 50, source: "task", source_id: id,
+      });
+      // Recalculate total XP
+      const { data: xpLogs } = await supabase
+        .from("xp_log")
+        .select("xp_amount")
+        .eq("user_id", user.id);
+      const totalXP = (xpLogs ?? []).reduce((s, l) => s + l.xp_amount, 0);
+      const newLevel = Math.max(1, Math.floor(Math.sqrt(totalXP / 50)));
+      await supabase.from("profiles").update({
+        total_xp: totalXP,
+        level: newLevel,
+      }).eq("user_id", user.id);
+      qc.invalidateQueries({ queryKey: ["profile"] });
+      qc.invalidateQueries({ queryKey: ["leaderboard"] });
+      qc.invalidateQueries({ queryKey: ["xp_log"] });
     }
   };
 
