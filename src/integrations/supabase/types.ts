@@ -221,6 +221,62 @@ export type Database = {
         }
         Relationships: []
       }
+      learning_progress_predictions: {
+        Row: {
+          alert_message: string | null
+          calculated_at: string
+          current_readiness: number
+          days_remaining: number | null
+          exam_date: string | null
+          id: string
+          learning_speed: number
+          predicted_readiness: number
+          predicted_study_hours: number
+          probability_ready: number | null
+          recommended_additional_hours: number | null
+          subject_id: string | null
+          user_id: string
+        }
+        Insert: {
+          alert_message?: string | null
+          calculated_at?: string
+          current_readiness?: number
+          days_remaining?: number | null
+          exam_date?: string | null
+          id?: string
+          learning_speed?: number
+          predicted_readiness?: number
+          predicted_study_hours?: number
+          probability_ready?: number | null
+          recommended_additional_hours?: number | null
+          subject_id?: string | null
+          user_id: string
+        }
+        Update: {
+          alert_message?: string | null
+          calculated_at?: string
+          current_readiness?: number
+          days_remaining?: number | null
+          exam_date?: string | null
+          id?: string
+          learning_speed?: number
+          predicted_readiness?: number
+          predicted_study_hours?: number
+          probability_ready?: number | null
+          recommended_additional_hours?: number | null
+          subject_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learning_progress_predictions_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
