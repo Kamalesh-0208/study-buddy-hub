@@ -3,12 +3,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
-import { Progress } from "@/components/ui/progress";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
+} from "@/components/ui/alert-dialog";
 import {
   Clock, RotateCcw, Send, Eye, EyeOff, FileCode, Palette,
-  CheckCircle, XCircle, Upload, AlertTriangle, Lightbulb, Copy
+  CheckCircle, XCircle, AlertTriangle, Lightbulb, Copy, Lock
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -77,17 +79,23 @@ body {
   const [activeTab, setActiveTab] = useState("html");
   const [showPreview, setShowPreview] = useState(true);
   const [submitted, setSubmitted] = useState(false);
+  const [locked, setLocked] = useState(false);
   const [showSolution, setShowSolution] = useState(false);
   const [showHints, setShowHints] = useState(false);
   const [timeLeft, setTimeLeft] = useState(timer_minutes * 60);
   const [similarityScore, setSimilarityScore] = useState<number | null>(null);
   const [reqCheckPassed, setReqCheckPassed] = useState<boolean | null>(null);
+  const [autoSubmitted, setAutoSubmitted] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   // Timer
   useEffect(() => {
     if (mode !== "exam" || submitted) return;
-    if (timeLeft <= 0) { handleFinish(); return; }
+    if (timeLeft <= 0) {
+      setAutoSubmitted(true);
+      handleFinish();
+      return;
+    }
     const t = setInterval(() => setTimeLeft(p => p - 1), 1000);
     return () => clearInterval(t);
   }, [mode, submitted, timeLeft]);
@@ -101,7 +109,6 @@ body {
       /<link\s+rel="stylesheet"\s+href="styles\.css"\s*\/?>/i,
       `<style>${cssCode}</style>`
     );
-    // If no link tag found, inject style in head
     if (!cssInjected.includes("<style>")) {
       return htmlCode.replace("</head>", `<style>${cssCode}</style></head>`);
     }
@@ -120,14 +127,12 @@ body {
   }, [previewDoc, showPreview]);
 
   const evaluateSubmission = useCallback(() => {
-    // Simple heuristic evaluation
     let score = 0;
     const htmlLower = htmlCode.toLowerCase();
     const cssLower = cssCode.toLowerCase();
     const totalCriteria = challenge.evaluation_criteria.length + challenge.requirements.length;
     let criteriaMatched = 0;
 
-    // Check requirements
     let allReqsMet = true;
     challenge.requirements.forEach(req => {
       const ruleL = req.rule.toLowerCase();
@@ -140,11 +145,10 @@ body {
       } else if (ruleL.includes("responsive") && cssLower.includes("@media")) {
         criteriaMatched++;
       } else if (ruleL.includes("external css") || ruleL.includes("external stylesheet")) {
-        criteriaMatched++; // We always have separate CSS
+        criteriaMatched++;
       } else if (ruleL.includes("custom font") && (cssLower.includes("font-family") || htmlLower.includes("fonts.googleapis"))) {
         criteriaMatched++;
       } else {
-        // Generic check: if any keywords from the rule appear in code
         const keywords = ruleL.split(/\s+/).filter(w => w.length > 3);
         if (keywords.some(kw => htmlLower.includes(kw) || cssLower.includes(kw))) {
           criteriaMatched++;
@@ -154,7 +158,6 @@ body {
       }
     });
 
-    // Check evaluation criteria (structural)
     challenge.evaluation_criteria.forEach(criterion => {
       const cl = criterion.toLowerCase();
       if (cl.includes("layout") && (cssLower.includes("flex") || cssLower.includes("grid") || cssLower.includes("float"))) criteriaMatched++;
@@ -162,15 +165,13 @@ body {
       else if (cl.includes("spacing") && (cssLower.includes("padding") || cssLower.includes("margin") || cssLower.includes("gap"))) criteriaMatched++;
       else if (cl.includes("responsive") && cssLower.includes("@media")) criteriaMatched++;
       else if (cl.includes("component") || cl.includes("structure")) {
-        // Check if HTML has reasonable structure
         const tagCount = (htmlLower.match(/<[a-z]/g) || []).length;
         if (tagCount > 5) criteriaMatched++;
       } else {
-        criteriaMatched += 0.5; // partial credit
+        criteriaMatched += 0.5;
       }
     });
 
-    // Content-based bonus
     const htmlLines = htmlCode.split("\n").filter(l => l.trim()).length;
     const cssLines = cssCode.split("\n").filter(l => l.trim()).length;
     const contentBonus = Math.min(20, (htmlLines + cssLines) / 2);
@@ -182,6 +183,7 @@ body {
   }, [htmlCode, cssCode, challenge]);
 
   const handleFinish = () => {
+    setLocked(true);
     setSubmitted(true);
     evaluateSubmission();
   };
@@ -190,11 +192,22 @@ body {
     navigator.clipboard.writeText(text);
   };
 
+  const finishLabel = mode === "exam" ? "Finish Test" : "Finish Practice";
+
   // Result screen
   if (submitted && similarityScore !== null) {
     const passed = similarityScore >= 80 && reqCheckPassed;
     return (
       <div className="max-w-4xl mx-auto space-y-6">
+        {autoSubmitted && (
+          <Card className="border-orange-500/50 bg-orange-500/5">
+            <CardContent className="pt-4 flex items-center gap-2 text-sm">
+              <Clock className="h-4 w-4 text-orange-500" />
+              <span>Time expired — your code was automatically submitted.</span>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Result Card */}
         <Card className={passed ? "border-green-500/50" : "border-destructive/50"}>
           <CardHeader className="text-center">
@@ -241,7 +254,7 @@ body {
           <CardContent>
             <iframe
               ref={iframeRef}
-              className="w-full h-[300px] border rounded-lg bg-white"
+              className="w-full h-[300px] border rounded-lg bg-background"
               title="Your Submission"
               sandbox="allow-scripts"
             />
@@ -293,6 +306,7 @@ body {
         <div className="flex items-center gap-2">
           <Badge variant="outline" className="capitalize">{challenge.difficulty_label}</Badge>
           <h2 className="font-semibold text-sm">{challenge.title}</h2>
+          {locked && <Badge variant="secondary" className="text-xs"><Lock className="h-3 w-3 mr-1" /> Locked</Badge>}
         </div>
         <div className="flex items-center gap-2">
           {mode === "exam" && (
@@ -303,9 +317,25 @@ body {
           <Button variant="outline" size="sm" onClick={() => setShowPreview(!showPreview)}>
             {showPreview ? <><EyeOff className="h-3 w-3 mr-1" /> Hide Preview</> : <><Eye className="h-3 w-3 mr-1" /> Show Preview</>}
           </Button>
-          <Button variant="destructive" size="sm" onClick={handleFinish}>
-            <Send className="h-3 w-3 mr-1" /> Finish Test
-          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" size="sm">
+                <Send className="h-3 w-3 mr-1" /> {finishLabel}
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Are you sure you want to finish?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will submit your HTML and CSS code, lock the editor, and evaluate your webpage against the reference design. You cannot make changes after finishing.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel — Continue Coding</AlertDialogCancel>
+                <AlertDialogAction onClick={handleFinish}>Yes — Finish Now</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </div>
 
@@ -446,17 +476,19 @@ body {
               <TabsContent value="html" className="flex-1">
                 <Textarea
                   value={htmlCode}
-                  onChange={e => setHtmlCode(e.target.value)}
-                  className="min-h-[400px] font-mono text-xs resize-none bg-[hsl(var(--muted))] border-0"
+                  onChange={e => !locked && setHtmlCode(e.target.value)}
+                  className={`min-h-[400px] font-mono text-xs resize-none bg-[hsl(var(--muted))] border-0 ${locked ? "opacity-70 cursor-not-allowed" : ""}`}
                   spellCheck={false}
+                  disabled={locked}
                 />
               </TabsContent>
               <TabsContent value="css" className="flex-1">
                 <Textarea
                   value={cssCode}
-                  onChange={e => setCssCode(e.target.value)}
-                  className="min-h-[400px] font-mono text-xs resize-none bg-[hsl(var(--muted))] border-0"
+                  onChange={e => !locked && setCssCode(e.target.value)}
+                  className={`min-h-[400px] font-mono text-xs resize-none bg-[hsl(var(--muted))] border-0 ${locked ? "opacity-70 cursor-not-allowed" : ""}`}
                   spellCheck={false}
+                  disabled={locked}
                 />
               </TabsContent>
             </Tabs>
@@ -474,7 +506,7 @@ body {
             <CardContent className="flex-1">
               <iframe
                 ref={iframeRef}
-                className="w-full min-h-[400px] border rounded-lg bg-white"
+                className="w-full min-h-[400px] border rounded-lg bg-background"
                 title="Live Preview"
                 sandbox="allow-scripts"
               />
