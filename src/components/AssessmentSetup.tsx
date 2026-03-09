@@ -117,7 +117,7 @@ const AssessmentSetup = ({ onStart, loading }: Props) => {
           </Card>
         )}
 
-        {step === 1 && (
+        {step === 1 && config.skillCategory !== "htmlcss" && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><GraduationCap className="h-5 w-5 text-primary" /> Choose Skill</CardTitle>
@@ -136,7 +136,26 @@ const AssessmentSetup = ({ onStart, loading }: Props) => {
           </Card>
         )}
 
-        {step === 2 && (
+        {step === 1 && config.skillCategory === "htmlcss" && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><Palette className="h-5 w-5 text-primary" /> Choose Webpage Topic</CardTitle>
+              <CardDescription>Select a webpage design to recreate</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-2">
+                {HTMLCSS_TOPICS.map(t => (
+                  <Badge key={t} variant={config.topic === t ? "default" : "outline"} className="cursor-pointer text-sm py-1.5 px-3"
+                    onClick={() => setConfig({ ...config, topic: t })}>
+                    {t}
+                  </Badge>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {step === 2 && config.skillCategory !== "htmlcss" && (
           <Card>
             <CardHeader>
               <CardTitle>Enter Topic</CardTitle>
@@ -145,6 +164,20 @@ const AssessmentSetup = ({ onStart, loading }: Props) => {
             <CardContent>
               <Input placeholder={config.skillCategory === "programming" ? "e.g. Loops, Arrays, Functions" : "e.g. Clocks, Number Series, SQL Queries"}
                 value={config.topic} onChange={e => setConfig({ ...config, topic: e.target.value })} />
+            </CardContent>
+          </Card>
+        )}
+
+        {step === 2 && config.skillCategory === "htmlcss" && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Additional Requirements</CardTitle>
+              <CardDescription>Optionally add specific requirements (leave blank for random)</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Input placeholder="e.g. Use Flexbox, Add hover effects, Mobile responsive"
+                value={config.topic.includes("Landing Page") || HTMLCSS_TOPICS.includes(config.topic) ? "" : config.topic}
+                onChange={e => setConfig({ ...config, topic: config.topic.split("|")[0] + (e.target.value ? "|" + e.target.value : "") })} />
             </CardContent>
           </Card>
         )}
