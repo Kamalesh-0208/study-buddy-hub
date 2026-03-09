@@ -1,6 +1,9 @@
 import PerformanceAnalytics from "@/components/PerformanceAnalytics";
 import StudyHeatmap from "@/components/StudyHeatmap";
 import WeeklyReport from "@/components/WeeklyReport";
+import ExamReadiness from "@/components/ExamReadiness";
+import StudyStrategyEngine from "@/components/StudyStrategyEngine";
+import WeakTopicDetector from "@/components/WeakTopicDetector";
 import { motion } from "framer-motion";
 
 const AnalyticsPage = () => (
@@ -10,6 +13,11 @@ const AnalyticsPage = () => (
       <p className="text-sm text-muted-foreground mt-1">Track your study performance, trends, and insights</p>
     </div>
     <PerformanceAnalytics />
+    <div className="grid gap-6 lg:grid-cols-2">
+      <ExamReadiness />
+      <StudyStrategyEngine />
+    </div>
+    <WeakTopicDetector />
     <div className="grid gap-6 lg:grid-cols-2">
       <StudyHeatmap />
       <WeeklyReport />
