@@ -6,6 +6,7 @@ import {
   ExternalLink, AlertTriangle, BookOpen, Layers, Rocket, Target,
   Clock, Wrench, Lightbulb, GitBranch, Dumbbell, HelpCircle,
   CheckCircle2, TrendingUp, GraduationCap, Brain, Route, ListChecks,
+  Users, Calendar, RefreshCw, Trophy, MessageCircle,
 } from "lucide-react";
 
 interface SkillAnalysisProps {
@@ -54,16 +55,21 @@ const SkillAnalysisView = ({ analysis, skillName }: SkillAnalysisProps) => {
       <TabsList className="h-auto w-full flex-wrap justify-start gap-0.5 bg-muted/50 p-1">
         <TabsTrigger value="overview" className="text-[10px] px-2 py-1 h-6">Overview</TabsTrigger>
         <TabsTrigger value="difficulty" className="text-[10px] px-2 py-1 h-6">Difficulty</TabsTrigger>
+        <TabsTrigger value="levels" className="text-[10px] px-2 py-1 h-6">Student Levels</TabsTrigger>
         <TabsTrigger value="roadmap" className="text-[10px] px-2 py-1 h-6">Roadmap</TabsTrigger>
         <TabsTrigger value="skill-tree" className="text-[10px] px-2 py-1 h-6">Skill Tree</TabsTrigger>
+        <TabsTrigger value="daily-tasks" className="text-[10px] px-2 py-1 h-6">Daily Tasks</TabsTrigger>
         <TabsTrigger value="plans" className="text-[10px] px-2 py-1 h-6">Learning Plans</TabsTrigger>
         <TabsTrigger value="study" className="text-[10px] px-2 py-1 h-6">Study System</TabsTrigger>
+        <TabsTrigger value="revision" className="text-[10px] px-2 py-1 h-6">Revision</TabsTrigger>
         <TabsTrigger value="exercises" className="text-[10px] px-2 py-1 h-6">Exercises</TabsTrigger>
         <TabsTrigger value="quiz" className="text-[10px] px-2 py-1 h-6">Quiz</TabsTrigger>
         <TabsTrigger value="projects" className="text-[10px] px-2 py-1 h-6">Projects</TabsTrigger>
+        <TabsTrigger value="ai-tutor" className="text-[10px] px-2 py-1 h-6">AI Tutor</TabsTrigger>
         <TabsTrigger value="tools" className="text-[10px] px-2 py-1 h-6">Tools</TabsTrigger>
         <TabsTrigger value="resources" className="text-[10px] px-2 py-1 h-6">Resources</TabsTrigger>
         <TabsTrigger value="mistakes" className="text-[10px] px-2 py-1 h-6">Mistakes</TabsTrigger>
+        <TabsTrigger value="gamification" className="text-[10px] px-2 py-1 h-6">Gamification</TabsTrigger>
         <TabsTrigger value="progress" className="text-[10px] px-2 py-1 h-6">Progress</TabsTrigger>
       </TabsList>
 
@@ -166,6 +172,29 @@ const SkillAnalysisView = ({ analysis, skillName }: SkillAnalysisProps) => {
         )}
       </TabsContent>
 
+      {/* Student Levels */}
+      <TabsContent value="levels" className="space-y-2">
+        {analysis.student_levels?.length > 0 ? (
+          analysis.student_levels.map((sl: any, i: number) => (
+            <div key={i} className="rounded-lg border border-border/40 p-3 bg-secondary/10">
+              <div className="flex items-center gap-2 mb-1">
+                <Users className="h-3.5 w-3.5 text-primary" />
+                <span className="text-xs font-bold text-foreground">{sl.level}</span>
+              </div>
+              <p className="text-[11px] text-muted-foreground mb-1.5">{sl.description}</p>
+              <span className="text-[10px] font-semibold text-foreground">What they typically know:</span>
+              <ul className="mt-0.5 space-y-0.5">
+                {sl.what_they_know?.map((item: string, j: number) => (
+                  <li key={j} className="text-[11px] text-muted-foreground">• {item}</li>
+                ))}
+              </ul>
+            </div>
+          ))
+        ) : (
+          <p className="text-xs text-muted-foreground italic">No student level data available.</p>
+        )}
+      </TabsContent>
+
       {/* Roadmap */}
       <TabsContent value="roadmap" className="space-y-2">
         {analysis.stages?.map((stage: any, i: number) => (
@@ -207,6 +236,27 @@ const SkillAnalysisView = ({ analysis, skillName }: SkillAnalysisProps) => {
           </div>
         ) : (
           <p className="text-xs text-muted-foreground italic">No skill tree available.</p>
+        )}
+      </TabsContent>
+
+      {/* Daily Tasks (14-day) */}
+      <TabsContent value="daily-tasks" className="space-y-2">
+        {analysis.daily_tasks_14day?.length > 0 ? (
+          analysis.daily_tasks_14day.map((day: any, i: number) => (
+            <div key={i} className="rounded-lg border border-border/40 p-3 bg-secondary/10">
+              <h4 className="text-xs font-bold text-foreground flex items-center gap-1 mb-1.5">
+                <Calendar className="h-3.5 w-3.5 text-primary" /> Day {day.day}
+              </h4>
+              <div className="grid gap-1.5 sm:grid-cols-2">
+                <div className="text-[11px]"><span className="font-semibold text-foreground">📖 Study:</span> <span className="text-muted-foreground">{day.concept_to_study}</span></div>
+                <div className="text-[11px]"><span className="font-semibold text-foreground">💻 Practice:</span> <span className="text-muted-foreground">{day.practice_task}</span></div>
+                <div className="text-[11px]"><span className="font-semibold text-foreground">✏️ Exercise:</span> <span className="text-muted-foreground">{day.exercise}</span></div>
+                <div className="text-[11px]"><span className="font-semibold text-foreground">🔄 Reflect:</span> <span className="text-muted-foreground">{day.reflection}</span></div>
+              </div>
+            </div>
+          ))
+        ) : (
+          <p className="text-xs text-muted-foreground italic">No daily tasks available.</p>
         )}
       </TabsContent>
 
@@ -295,6 +345,38 @@ const SkillAnalysisView = ({ analysis, skillName }: SkillAnalysisProps) => {
               </div>
             ))}
           </div>
+        )}
+      </TabsContent>
+
+      {/* Weekly Revision */}
+      <TabsContent value="revision" className="space-y-3">
+        {analysis.weekly_revision ? (
+          <>
+            <SectionCard icon={RefreshCw} title="Weekly Revision Strategy">
+              <div className="space-y-1.5">
+                {analysis.weekly_revision.revision_steps?.map((s: any, i: number) => (
+                  <div key={i} className="flex items-start gap-2">
+                    <Badge variant="outline" className="text-[9px] shrink-0 mt-0.5">{i + 1}</Badge>
+                    <div>
+                      <span className="text-[11px] font-semibold text-foreground">{s.step}</span>
+                      <p className="text-[10px] text-muted-foreground">{s.description}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </SectionCard>
+            {analysis.weekly_revision.revision_tips?.length > 0 && (
+              <SectionCard icon={Lightbulb} title="Revision Tips">
+                <ul className="space-y-0.5">
+                  {analysis.weekly_revision.revision_tips.map((tip: string, i: number) => (
+                    <li key={i} className="text-[11px] text-muted-foreground">• {tip}</li>
+                  ))}
+                </ul>
+              </SectionCard>
+            )}
+          </>
+        ) : (
+          <p className="text-xs text-muted-foreground italic">No revision system available.</p>
         )}
       </TabsContent>
 
@@ -399,6 +481,26 @@ const SkillAnalysisView = ({ analysis, skillName }: SkillAnalysisProps) => {
         )}
       </TabsContent>
 
+      {/* AI Tutor */}
+      <TabsContent value="ai-tutor" className="space-y-2">
+        {analysis.ai_tutor?.length > 0 ? (
+          analysis.ai_tutor.map((concept: any, i: number) => (
+            <div key={i} className="rounded-lg border border-border/40 p-3 bg-secondary/10">
+              <h4 className="text-xs font-bold text-foreground flex items-center gap-1 mb-1">
+                <MessageCircle className="h-3.5 w-3.5 text-primary" /> {concept.concept_name}
+              </h4>
+              <p className="text-[11px] text-muted-foreground mb-1.5">{concept.simple_explanation}</p>
+              <div className="rounded-md bg-muted/50 p-2 border border-border/30">
+                <span className="text-[10px] font-semibold text-foreground">Example:</span>
+                <p className="text-[11px] text-muted-foreground mt-0.5">{concept.example}</p>
+              </div>
+            </div>
+          ))
+        ) : (
+          <p className="text-xs text-muted-foreground italic">No AI tutor explanations available.</p>
+        )}
+      </TabsContent>
+
       {/* Tools */}
       <TabsContent value="tools" className="space-y-3">
         {analysis.tools ? (
@@ -472,6 +574,64 @@ const SkillAnalysisView = ({ analysis, skillName }: SkillAnalysisProps) => {
             </div>
           </div>
         ))}
+      </TabsContent>
+
+      {/* Gamification */}
+      <TabsContent value="gamification" className="space-y-3">
+        {analysis.gamification ? (
+          <>
+            {analysis.gamification.xp_rules?.length > 0 && (
+              <SectionCard icon={Trophy} title="XP Rules">
+                <div className="space-y-1">
+                  {analysis.gamification.xp_rules.map((r: any, i: number) => (
+                    <div key={i} className="flex items-center justify-between text-[11px]">
+                      <span className="text-foreground">{r.action}</span>
+                      <Badge variant="secondary" className="text-[9px]">+{r.xp_earned} XP</Badge>
+                    </div>
+                  ))}
+                </div>
+              </SectionCard>
+            )}
+            {analysis.gamification.skill_levels?.length > 0 && (
+              <SectionCard icon={TrendingUp} title="Skill Levels">
+                <div className="space-y-1">
+                  {analysis.gamification.skill_levels.map((l: any, i: number) => (
+                    <div key={i} className="flex items-center justify-between text-[11px]">
+                      <span className="font-medium text-foreground">{l.level_name}</span>
+                      <span className="text-muted-foreground">{l.xp_required} XP</span>
+                    </div>
+                  ))}
+                </div>
+              </SectionCard>
+            )}
+            {analysis.gamification.achievement_badges?.length > 0 && (
+              <SectionCard icon={Trophy} title="Achievement Badges">
+                <div className="space-y-1.5">
+                  {analysis.gamification.achievement_badges.map((b: any, i: number) => (
+                    <div key={i} className="text-[11px]">
+                      <span className="font-semibold text-foreground">🏅 {b.badge_name}</span>
+                      <p className="text-[10px] text-muted-foreground">{b.how_to_earn}</p>
+                    </div>
+                  ))}
+                </div>
+              </SectionCard>
+            )}
+            {analysis.gamification.streak_rules?.length > 0 && (
+              <SectionCard icon={Target} title="Streak Rewards">
+                <div className="space-y-1">
+                  {analysis.gamification.streak_rules.map((s: any, i: number) => (
+                    <div key={i} className="flex items-center justify-between text-[11px]">
+                      <span className="text-foreground">🔥 {s.streak_days}-day streak</span>
+                      <span className="text-muted-foreground">{s.reward}</span>
+                    </div>
+                  ))}
+                </div>
+              </SectionCard>
+            )}
+          </>
+        ) : (
+          <p className="text-xs text-muted-foreground italic">No gamification data available.</p>
+        )}
       </TabsContent>
 
       {/* Progress & Mastery */}

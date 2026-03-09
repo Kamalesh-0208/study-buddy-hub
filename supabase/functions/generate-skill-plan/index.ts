@@ -284,8 +284,84 @@ Generate ALL of the following:
           type: "array",
           items: { type: "object", properties: { advice: { type: "string" }, detail: { type: "string" } }, required: ["advice", "detail"], additionalProperties: false },
         },
+        student_levels: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              level: { type: "string" },
+              description: { type: "string" },
+              what_they_know: { type: "array", items: { type: "string" } },
+            },
+            required: ["level", "description", "what_they_know"],
+            additionalProperties: false,
+          },
+        },
+        daily_tasks_14day: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              day: { type: "integer" },
+              concept_to_study: { type: "string" },
+              practice_task: { type: "string" },
+              exercise: { type: "string" },
+              reflection: { type: "string" },
+            },
+            required: ["day", "concept_to_study", "practice_task", "exercise", "reflection"],
+            additionalProperties: false,
+          },
+        },
+        weekly_revision: {
+          type: "object",
+          properties: {
+            revision_steps: {
+              type: "array",
+              items: { type: "object", properties: { step: { type: "string" }, description: { type: "string" } }, required: ["step", "description"], additionalProperties: false },
+            },
+            revision_tips: { type: "array", items: { type: "string" } },
+          },
+          required: ["revision_steps", "revision_tips"],
+          additionalProperties: false,
+        },
+        gamification: {
+          type: "object",
+          properties: {
+            xp_rules: {
+              type: "array",
+              items: { type: "object", properties: { action: { type: "string" }, xp_earned: { type: "integer" } }, required: ["action", "xp_earned"], additionalProperties: false },
+            },
+            skill_levels: {
+              type: "array",
+              items: { type: "object", properties: { level_name: { type: "string" }, xp_required: { type: "integer" } }, required: ["level_name", "xp_required"], additionalProperties: false },
+            },
+            achievement_badges: {
+              type: "array",
+              items: { type: "object", properties: { badge_name: { type: "string" }, how_to_earn: { type: "string" } }, required: ["badge_name", "how_to_earn"], additionalProperties: false },
+            },
+            streak_rules: {
+              type: "array",
+              items: { type: "object", properties: { streak_days: { type: "integer" }, reward: { type: "string" } }, required: ["streak_days", "reward"], additionalProperties: false },
+            },
+          },
+          required: ["xp_rules", "skill_levels", "achievement_badges", "streak_rules"],
+          additionalProperties: false,
+        },
+        ai_tutor: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              concept_name: { type: "string" },
+              simple_explanation: { type: "string" },
+              example: { type: "string" },
+            },
+            required: ["concept_name", "simple_explanation", "example"],
+            additionalProperties: false,
+          },
+        },
       },
-      required: ["adaptive_paths", "extended_timeline", "study_routine", "exercises", "quiz", "memory_techniques", "progress_checklist", "mastery_indicators", "related_skills", "skill_future", "student_advice"],
+      required: ["adaptive_paths", "extended_timeline", "study_routine", "exercises", "quiz", "memory_techniques", "progress_checklist", "mastery_indicators", "related_skills", "skill_future", "student_advice", "student_levels", "daily_tasks_14day", "weekly_revision", "gamification", "ai_tutor"],
       additionalProperties: false,
     };
 
