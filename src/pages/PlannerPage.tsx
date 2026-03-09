@@ -5,6 +5,10 @@ import { Button } from "@/components/ui/button";
 import { useStudyPlanner } from "@/hooks/useStudyPlanner";
 import { Slider } from "@/components/ui/slider";
 import { toast } from "sonner";
+import SkillLearningPlanner from "@/components/SkillLearningPlanner";
+import { useStudyPlanner } from "@/hooks/useStudyPlanner";
+import { Slider } from "@/components/ui/slider";
+import { toast } from "sonner";
 
 const PlannerPage = () => {
   const { plans, isLoading, generatePlan, toggleComplete, toggleLock, deletePlan } = useStudyPlanner();
