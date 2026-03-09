@@ -1,7 +1,7 @@
 import { useState } from "react";
 import {
   LayoutDashboard, Target, ListTodo, BookOpen, BarChart3,
-  Trophy, Medal, Settings, ChevronLeft, ChevronRight, Zap, Brain, ClipboardCheck,
+  Trophy, Medal, Settings, ChevronLeft, ChevronRight, Zap, Brain, ClipboardCheck, Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigate, useLocation } from "react-router-dom";
