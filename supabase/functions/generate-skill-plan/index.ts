@@ -53,32 +53,239 @@ REQUIREMENTS:
 
 Provide real, working URLs for resources (use well-known sites like MDN, W3Schools, GeeksforGeeks, tutorialspoint, youtube.com, docs.python.org, cprogramming.com, etc.)`;
 
-    // Call 2: Generate comprehensive student-focused skill analysis
-    const analysisPrompt = `You are an AI Learning Architect and Student Skill Mastery Guide. Analyze the skill "${skill_name}"${specific_topic ? ` (focus: ${specific_topic})` : ""} for a ${experience_level} student.
+    // Call 2: Generate core skill analysis
+    const analysisPrompt = `You are an AI Student Skill Mastery Guide. Analyze "${skill_name}"${specific_topic ? ` (focus: ${specific_topic})` : ""} for a ${experience_level} student.
+Focus ONLY on learning and mastery, not jobs or monetization.
 
-Focus ONLY on learning, understanding, and mastering the skill. This is for students, not professionals.
+Generate ALL sections:
+1. OVERVIEW: what_it_is, why_useful, where_used, build_examples, connected_subjects
+2. DIFFICULTY: concept_difficulty(1-10), technical_complexity(1-10), learning_curve(1-10), practice_requirement(1-10), time_to_learn(1-10), tool_complexity(1-10), overall_score, classification, estimated_weeks
+3. PREREQUISITES: core(name+reason), helpful(name+reason)
+4. SKILL DECOMPOSITION: components array with name+description showing fundamentals→core→practical→advanced→applications
+5. SKILL TREE: text tree using ├── └── showing full hierarchy
+6. LEARNING ROADMAP: 5 stages (Foundations, Core Concepts, Practical Practice, Advanced Understanding, Mastery) with topics, key_concepts, practice_exercises, study_method
+7. ADAPTIVE PATHS: slow_learner, average_learner, fast_learner approaches
+8. TIMELINE: 30-day, 60-day, 90-day, 180-day plans with weekly milestones
+9. STUDY ROUTINE: daily routine items (concept_learning, practice, revision, project_work, testing)
+10. EXERCISES: 5 beginner, 5 intermediate, 3 advanced
+11. PROJECTS: 3 beginner, 3 intermediate, 2 advanced with name, description, skills_learned
+12. QUIZ: 5 beginner, 3 intermediate, 2 advanced questions with options and correct_answer
+13. TOOLS: beginner, professional, optional - each with name and used_for
+14. RESOURCES: courses, youtube_channels, books, websites, practice_platforms (name+url)
+15. COMMON MISTAKES: mistake + how_to_avoid
+16. MEMORY TECHNIQUES: technique + how_to_apply for this skill
+17. PROGRESS CHECKLIST: checkpoints from beginner to mastery
+18. MASTERY INDICATORS: signs that show skill mastery
+19. RELATED SKILLS: 5 skills to learn next with connection explanation
+20. SKILL FUTURE: trends, why_stays_relevant, growth_areas
+21. STUDENT ADVICE: practical tips for consistency, overcoming difficulty, effective practice`;
 
-Produce a comprehensive student-focused analysis covering ALL sections:
+    // Call 3: Extended mastery content (exercises, quiz, routines, progress)
+    const extendedPrompt = `You are an AI Student Learning Coach. For the skill "${skill_name}"${specific_topic ? ` (focus: ${specific_topic})` : ""}, generate extended learning content for a ${experience_level} student.
 
-1. SKILL OVERVIEW: What the skill is (simple explanation), why useful to learn, where used in real life, examples of things that can be built
-2. DIFFICULTY ANALYSIS: Rate 1-10 for concept_difficulty, technical_difficulty, learning_curve, time_to_learn. Provide overall_score, classification (Beginner/Intermediate/Advanced), estimated_weeks
-3. PREREQUISITES: core prerequisites (must know before starting, with reasons) and helpful supporting knowledge (with reasons)
-4. LEARNING ROADMAP: 5 stages (Foundations, Core Concepts, Practical Practice, Advanced Understanding, Mastery) - each with topics, key_concepts, practice_exercises
-5. SKILL TREE: A text-based tree showing how the skill grows from beginner to advanced (use ├── and └── formatting)
-6. PRACTICE PROJECTS: 3 beginner, 3 intermediate, 2 advanced projects - each with name, description, what_it_teaches
-7. LEARNING TIMELINE (assuming 1-2 hours/day): 30-day plan, 90-day plan, 6-month mastery plan with milestones
-8. TOOLS NEEDED: beginner tools and advanced tools, each with name and what it's used for
-9. BEST LEARNING RESOURCES: beginner-friendly courses, youtube channels, books, websites, practice platforms (name + url)
-10. COMMON BEGINNER MISTAKES: mistakes students make and how to avoid them
-11. STUDY TIPS: strategies for faster learning and better retention`;
+Generate ALL of the following:
+1. ADAPTIVE LEARNING PATHS: Describe approaches for slow_learner, average_learner, fast_learner
+2. EXTENDED TIMELINE: 30-day, 60-day, 90-day, 180-day plans with weekly milestones
+3. DAILY STUDY ROUTINE: Items for concept_learning, practice, revision, project_work, testing with time allocations
+4. PRACTICE EXERCISES: 5 beginner, 5 intermediate, 3 advanced exercises
+5. KNOWLEDGE QUIZ: 5 beginner, 3 intermediate, 2 advanced questions with 4 options each and correct_answer index
+6. MEMORY TECHNIQUES: Study strategies (active recall, spaced repetition, etc.) with how_to_apply for this skill
+7. PROGRESS CHECKLIST: Checkpoint milestones from beginner to mastery
+8. MASTERY INDICATORS: Clear signs of skill mastery
+9. RELATED SKILLS: 5 skills to learn next with connection_to_current
+10. SKILL FUTURE: emerging trends, why it stays relevant, growth areas
+11. STUDENT ADVICE: Tips for consistency, overcoming difficulty, effective practice`;
 
     const aiHeaders = {
       Authorization: `Bearer ${LOVABLE_API_KEY}`,
       "Content-Type": "application/json",
     };
 
-    // Run both AI calls in parallel
-    const [topicsResponse, analysisResponse] = await Promise.all([
+    const coreAnalysisSchema = {
+      type: "object",
+      properties: {
+        overview: {
+          type: "object",
+          properties: {
+            what_it_is: { type: "string" },
+            why_useful: { type: "string" },
+            where_used: { type: "string" },
+            build_examples: { type: "array", items: { type: "string" } },
+            connected_subjects: { type: "array", items: { type: "string" } },
+          },
+          required: ["what_it_is", "why_useful", "where_used", "build_examples", "connected_subjects"],
+          additionalProperties: false,
+        },
+        difficulty: {
+          type: "object",
+          properties: {
+            concept_difficulty: { type: "integer", minimum: 1, maximum: 10 },
+            technical_complexity: { type: "integer", minimum: 1, maximum: 10 },
+            learning_curve: { type: "integer", minimum: 1, maximum: 10 },
+            practice_requirement: { type: "integer", minimum: 1, maximum: 10 },
+            time_to_learn: { type: "integer", minimum: 1, maximum: 10 },
+            tool_complexity: { type: "integer", minimum: 1, maximum: 10 },
+            overall_score: { type: "number" },
+            classification: { type: "string" },
+            estimated_weeks: { type: "integer" },
+          },
+          required: ["concept_difficulty", "technical_complexity", "learning_curve", "practice_requirement", "time_to_learn", "tool_complexity", "overall_score", "classification", "estimated_weeks"],
+          additionalProperties: false,
+        },
+        prerequisites: {
+          type: "object",
+          properties: {
+            core: { type: "array", items: { type: "object", properties: { name: { type: "string" }, reason: { type: "string" } }, required: ["name", "reason"], additionalProperties: false } },
+            helpful: { type: "array", items: { type: "object", properties: { name: { type: "string" }, reason: { type: "string" } }, required: ["name", "reason"], additionalProperties: false } },
+          },
+          required: ["core", "helpful"],
+          additionalProperties: false,
+        },
+        decomposition: {
+          type: "array",
+          items: { type: "object", properties: { name: { type: "string" }, description: { type: "string" } }, required: ["name", "description"], additionalProperties: false },
+        },
+        skill_tree: { type: "string" },
+        stages: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              name: { type: "string" },
+              topics: { type: "array", items: { type: "string" } },
+              key_concepts: { type: "array", items: { type: "string" } },
+              practice_exercises: { type: "array", items: { type: "string" } },
+              study_method: { type: "string" },
+            },
+            required: ["name", "topics", "key_concepts", "practice_exercises", "study_method"],
+            additionalProperties: false,
+          },
+        },
+        projects: {
+          type: "object",
+          properties: {
+            beginner: { type: "array", items: { type: "object", properties: { name: { type: "string" }, description: { type: "string" }, teaches: { type: "string" } }, required: ["name", "description", "teaches"], additionalProperties: false } },
+            intermediate: { type: "array", items: { type: "object", properties: { name: { type: "string" }, description: { type: "string" }, teaches: { type: "string" } }, required: ["name", "description", "teaches"], additionalProperties: false } },
+            advanced: { type: "array", items: { type: "object", properties: { name: { type: "string" }, description: { type: "string" }, teaches: { type: "string" } }, required: ["name", "description", "teaches"], additionalProperties: false } },
+          },
+          required: ["beginner", "intermediate", "advanced"],
+          additionalProperties: false,
+        },
+        tools: {
+          type: "object",
+          properties: {
+            beginner: { type: "array", items: { type: "object", properties: { name: { type: "string" }, used_for: { type: "string" } }, required: ["name", "used_for"], additionalProperties: false } },
+            professional: { type: "array", items: { type: "object", properties: { name: { type: "string" }, used_for: { type: "string" } }, required: ["name", "used_for"], additionalProperties: false } },
+            optional: { type: "array", items: { type: "object", properties: { name: { type: "string" }, used_for: { type: "string" } }, required: ["name", "used_for"], additionalProperties: false } },
+          },
+          required: ["beginner", "professional", "optional"],
+          additionalProperties: false,
+        },
+        resources: {
+          type: "object",
+          properties: {
+            courses: { type: "array", items: { type: "object", properties: { name: { type: "string" }, url: { type: "string" } }, required: ["name", "url"], additionalProperties: false } },
+            books: { type: "array", items: { type: "string" } },
+            youtube_channels: { type: "array", items: { type: "object", properties: { name: { type: "string" }, url: { type: "string" } }, required: ["name", "url"], additionalProperties: false } },
+            websites: { type: "array", items: { type: "object", properties: { name: { type: "string" }, url: { type: "string" } }, required: ["name", "url"], additionalProperties: false } },
+            practice_platforms: { type: "array", items: { type: "object", properties: { name: { type: "string" }, url: { type: "string" } }, required: ["name", "url"], additionalProperties: false } },
+          },
+          required: ["courses", "books", "youtube_channels", "websites", "practice_platforms"],
+          additionalProperties: false,
+        },
+        common_mistakes: { type: "array", items: { type: "object", properties: { mistake: { type: "string" }, how_to_avoid: { type: "string" } }, required: ["mistake", "how_to_avoid"], additionalProperties: false } },
+        study_tips: { type: "array", items: { type: "object", properties: { tip: { type: "string" }, explanation: { type: "string" } }, required: ["tip", "explanation"], additionalProperties: false } },
+      },
+      required: ["overview", "difficulty", "prerequisites", "decomposition", "skill_tree", "stages", "projects", "tools", "resources", "common_mistakes", "study_tips"],
+      additionalProperties: false,
+    };
+
+    const extendedSchema = {
+      type: "object",
+      properties: {
+        adaptive_paths: {
+          type: "object",
+          properties: {
+            slow_learner: { type: "string" },
+            average_learner: { type: "string" },
+            fast_learner: { type: "string" },
+          },
+          required: ["slow_learner", "average_learner", "fast_learner"],
+          additionalProperties: false,
+        },
+        extended_timeline: {
+          type: "object",
+          properties: {
+            thirty_days: { type: "string" },
+            sixty_days: { type: "string" },
+            ninety_days: { type: "string" },
+            one_eighty_days: { type: "string" },
+          },
+          required: ["thirty_days", "sixty_days", "ninety_days", "one_eighty_days"],
+          additionalProperties: false,
+        },
+        study_routine: {
+          type: "array",
+          items: { type: "object", properties: { activity: { type: "string" }, duration_minutes: { type: "integer" }, description: { type: "string" } }, required: ["activity", "duration_minutes", "description"], additionalProperties: false },
+        },
+        exercises: {
+          type: "object",
+          properties: {
+            beginner: { type: "array", items: { type: "object", properties: { title: { type: "string" }, description: { type: "string" } }, required: ["title", "description"], additionalProperties: false } },
+            intermediate: { type: "array", items: { type: "object", properties: { title: { type: "string" }, description: { type: "string" } }, required: ["title", "description"], additionalProperties: false } },
+            advanced: { type: "array", items: { type: "object", properties: { title: { type: "string" }, description: { type: "string" } }, required: ["title", "description"], additionalProperties: false } },
+          },
+          required: ["beginner", "intermediate", "advanced"],
+          additionalProperties: false,
+        },
+        quiz: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              question: { type: "string" },
+              level: { type: "string", enum: ["beginner", "intermediate", "advanced"] },
+              options: { type: "array", items: { type: "string" } },
+              correct_answer: { type: "integer" },
+            },
+            required: ["question", "level", "options", "correct_answer"],
+            additionalProperties: false,
+          },
+        },
+        memory_techniques: {
+          type: "array",
+          items: { type: "object", properties: { technique: { type: "string" }, how_to_apply: { type: "string" } }, required: ["technique", "how_to_apply"], additionalProperties: false },
+        },
+        progress_checklist: {
+          type: "array",
+          items: { type: "object", properties: { checkpoint: { type: "string" }, level: { type: "string" } }, required: ["checkpoint", "level"], additionalProperties: false },
+        },
+        mastery_indicators: { type: "array", items: { type: "string" } },
+        related_skills: {
+          type: "array",
+          items: { type: "object", properties: { name: { type: "string" }, connection: { type: "string" } }, required: ["name", "connection"], additionalProperties: false },
+        },
+        skill_future: {
+          type: "object",
+          properties: {
+            trends: { type: "array", items: { type: "string" } },
+            why_stays_relevant: { type: "string" },
+            growth_areas: { type: "array", items: { type: "string" } },
+          },
+          required: ["trends", "why_stays_relevant", "growth_areas"],
+          additionalProperties: false,
+        },
+        student_advice: {
+          type: "array",
+          items: { type: "object", properties: { advice: { type: "string" }, detail: { type: "string" } }, required: ["advice", "detail"], additionalProperties: false },
+        },
+      },
+      required: ["adaptive_paths", "extended_timeline", "study_routine", "exercises", "quiz", "memory_techniques", "progress_checklist", "mastery_indicators", "related_skills", "skill_future", "student_advice"],
+      additionalProperties: false,
+    };
+
+    // Run all 3 AI calls in parallel
+    const [topicsResponse, analysisResponse, extendedResponse] = await Promise.all([
       fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: aiHeaders,
@@ -139,144 +346,44 @@ Produce a comprehensive student-focused analysis covering ALL sections:
         body: JSON.stringify({
           model: "google/gemini-3-flash-preview",
           messages: [
-            { role: "system", content: "You are a career architect and skill analyst. Always respond with the requested tool call." },
+            { role: "system", content: "You are an AI student skill mastery guide. Always respond with the requested tool call." },
             { role: "user", content: analysisPrompt },
           ],
           tools: [{
             type: "function",
             function: {
               name: "skill_analysis",
-              description: "Student-focused skill mastery guide with difficulty, prerequisites, skill tree, projects, study tips",
-              parameters: {
-                type: "object",
-                properties: {
-                  overview: {
-                    type: "object",
-                    properties: {
-                      what_it_is: { type: "string" },
-                      why_useful: { type: "string" },
-                      where_used: { type: "string" },
-                      build_examples: { type: "array", items: { type: "string" } },
-                    },
-                    required: ["what_it_is", "why_useful", "where_used", "build_examples"],
-                    additionalProperties: false,
-                  },
-                  difficulty: {
-                    type: "object",
-                    properties: {
-                      concept_difficulty: { type: "integer", minimum: 1, maximum: 10 },
-                      technical_difficulty: { type: "integer", minimum: 1, maximum: 10 },
-                      learning_curve: { type: "integer", minimum: 1, maximum: 10 },
-                      time_to_learn: { type: "integer", minimum: 1, maximum: 10 },
-                      overall_score: { type: "number" },
-                      classification: { type: "string" },
-                      estimated_weeks: { type: "integer" },
-                    },
-                    required: ["concept_difficulty", "technical_difficulty", "learning_curve", "time_to_learn", "overall_score", "classification", "estimated_weeks"],
-                    additionalProperties: false,
-                  },
-                  prerequisites: {
-                    type: "object",
-                    properties: {
-                      core: { type: "array", items: { type: "object", properties: { name: { type: "string" }, reason: { type: "string" } }, required: ["name", "reason"], additionalProperties: false } },
-                      helpful: { type: "array", items: { type: "object", properties: { name: { type: "string" }, reason: { type: "string" } }, required: ["name", "reason"], additionalProperties: false } },
-                    },
-                    required: ["core", "helpful"],
-                    additionalProperties: false,
-                  },
-                  stages: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        name: { type: "string" },
-                        topics: { type: "array", items: { type: "string" } },
-                        key_concepts: { type: "array", items: { type: "string" } },
-                        practice_exercises: { type: "array", items: { type: "string" } },
-                      },
-                      required: ["name", "topics", "key_concepts", "practice_exercises"],
-                      additionalProperties: false,
-                    },
-                  },
-                  skill_tree: { type: "string", description: "Text-based skill tree using ├── └── formatting showing progression from beginner to advanced" },
-                  projects: {
-                    type: "object",
-                    properties: {
-                      beginner: { type: "array", items: { type: "object", properties: { name: { type: "string" }, description: { type: "string" }, teaches: { type: "string" } }, required: ["name", "description", "teaches"], additionalProperties: false } },
-                      intermediate: { type: "array", items: { type: "object", properties: { name: { type: "string" }, description: { type: "string" }, teaches: { type: "string" } }, required: ["name", "description", "teaches"], additionalProperties: false } },
-                      advanced: { type: "array", items: { type: "object", properties: { name: { type: "string" }, description: { type: "string" }, teaches: { type: "string" } }, required: ["name", "description", "teaches"], additionalProperties: false } },
-                    },
-                    required: ["beginner", "intermediate", "advanced"],
-                    additionalProperties: false,
-                  },
-                  timeline: {
-                    type: "object",
-                    properties: {
-                      thirty_days: { type: "string" },
-                      ninety_days: { type: "string" },
-                      six_months: { type: "string" },
-                    },
-                    required: ["thirty_days", "ninety_days", "six_months"],
-                    additionalProperties: false,
-                  },
-                  tools: {
-                    type: "object",
-                    properties: {
-                      beginner: { type: "array", items: { type: "object", properties: { name: { type: "string" }, used_for: { type: "string" } }, required: ["name", "used_for"], additionalProperties: false } },
-                      advanced: { type: "array", items: { type: "object", properties: { name: { type: "string" }, used_for: { type: "string" } }, required: ["name", "used_for"], additionalProperties: false } },
-                    },
-                    required: ["beginner", "advanced"],
-                    additionalProperties: false,
-                  },
-                  resources: {
-                    type: "object",
-                    properties: {
-                      courses: { type: "array", items: { type: "object", properties: { name: { type: "string" }, url: { type: "string" } }, required: ["name", "url"], additionalProperties: false } },
-                      books: { type: "array", items: { type: "string" } },
-                      youtube_channels: { type: "array", items: { type: "object", properties: { name: { type: "string" }, url: { type: "string" } }, required: ["name", "url"], additionalProperties: false } },
-                      websites: { type: "array", items: { type: "object", properties: { name: { type: "string" }, url: { type: "string" } }, required: ["name", "url"], additionalProperties: false } },
-                      practice_platforms: { type: "array", items: { type: "object", properties: { name: { type: "string" }, url: { type: "string" } }, required: ["name", "url"], additionalProperties: false } },
-                    },
-                    required: ["courses", "books", "youtube_channels", "websites", "practice_platforms"],
-                    additionalProperties: false,
-                  },
-                  common_mistakes: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        mistake: { type: "string" },
-                        how_to_avoid: { type: "string" },
-                      },
-                      required: ["mistake", "how_to_avoid"],
-                      additionalProperties: false,
-                    },
-                  },
-                  study_tips: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        tip: { type: "string" },
-                        explanation: { type: "string" },
-                      },
-                      required: ["tip", "explanation"],
-                      additionalProperties: false,
-                    },
-                  },
-                },
-                required: ["overview", "difficulty", "prerequisites", "stages", "skill_tree", "projects", "timeline", "tools", "resources", "common_mistakes", "study_tips"],
-                additionalProperties: false,
-              },
+              description: "Core skill analysis for students",
+              parameters: coreAnalysisSchema,
             },
           }],
           tool_choice: { type: "function", function: { name: "skill_analysis" } },
         }),
       }),
+      fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: aiHeaders,
+        body: JSON.stringify({
+          model: "google/gemini-3-flash-preview",
+          messages: [
+            { role: "system", content: "You are an AI student learning coach. Always respond with the requested tool call." },
+            { role: "user", content: extendedPrompt },
+          ],
+          tools: [{
+            type: "function",
+            function: {
+              name: "extended_mastery",
+              description: "Extended mastery content with exercises, quiz, routines, progress tracking",
+              parameters: extendedSchema,
+            },
+          }],
+          tool_choice: { type: "function", function: { name: "extended_mastery" } },
+        }),
+      }),
     ]);
 
     // Handle errors
-    for (const [resp, label] of [[topicsResponse, "topics"], [analysisResponse, "analysis"]] as const) {
+    for (const [resp, label] of [[topicsResponse, "topics"], [analysisResponse, "analysis"], [extendedResponse, "extended"]] as const) {
       if (!resp.ok) {
         const status = resp.status;
         const text = await resp.text();
@@ -295,19 +402,33 @@ Produce a comprehensive student-focused analysis covering ALL sections:
       }
     }
 
-    const [topicsData, analysisData] = await Promise.all([topicsResponse.json(), analysisResponse.json()]);
+    const [topicsData, analysisData, extendedData] = await Promise.all([
+      topicsResponse.json(), analysisResponse.json(), extendedResponse.json(),
+    ]);
 
     const topicsToolCall = topicsData.choices?.[0]?.message?.tool_calls?.[0];
     if (!topicsToolCall) throw new Error("No plan generated");
     const plan = JSON.parse(topicsToolCall.function.arguments);
 
-    let analysisResult = null;
+    let analysisResult: any = null;
     const analysisToolCall = analysisData.choices?.[0]?.message?.tool_calls?.[0];
     if (analysisToolCall) {
       try {
         analysisResult = JSON.parse(analysisToolCall.function.arguments);
       } catch (e) {
         console.error("Failed to parse analysis:", e);
+      }
+    }
+
+    // Parse extended mastery content and merge into analysis
+    const extendedToolCall = extendedData.choices?.[0]?.message?.tool_calls?.[0];
+    if (extendedToolCall && analysisResult) {
+      try {
+        const extendedResult = JSON.parse(extendedToolCall.function.arguments);
+        // Merge extended content into analysis_data
+        analysisResult = { ...analysisResult, ...extendedResult };
+      } catch (e) {
+        console.error("Failed to parse extended mastery:", e);
       }
     }
 
