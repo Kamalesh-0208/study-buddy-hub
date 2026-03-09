@@ -4,7 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { CheckCircle, XCircle, Clock, ArrowLeft, ArrowRight, Send, RotateCcw } from "lucide-react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
+} from "@/components/ui/alert-dialog";
+import { CheckCircle, XCircle, Clock, ArrowLeft, ArrowRight, Send, RotateCcw, Lock } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface Question {
@@ -35,18 +39,24 @@ const MCQAssessment = ({ assessment, mode, onReset }: Props) => {
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [showExplanation, setShowExplanation] = useState<Record<number, boolean>>({});
   const [submitted, setSubmitted] = useState(false);
+  const [locked, setLocked] = useState(false);
   const [timeLeft, setTimeLeft] = useState(timer_minutes * 60);
+  const [autoSubmitted, setAutoSubmitted] = useState(false);
 
   // Timer for exam mode
   useEffect(() => {
     if (mode !== "exam" || submitted) return;
-    if (timeLeft <= 0) { setSubmitted(true); return; }
+    if (timeLeft <= 0) {
+      setAutoSubmitted(true);
+      handleFinish();
+      return;
+    }
     const t = setInterval(() => setTimeLeft(p => p - 1), 1000);
     return () => clearInterval(t);
   }, [mode, submitted, timeLeft]);
 
   const selectAnswer = (qIdx: number, option: string) => {
-    if (submitted) return;
+    if (submitted || locked) return;
     setAnswers(prev => ({ ...prev, [qIdx]: option }));
     if (mode === "practice") {
       setShowExplanation(prev => ({ ...prev, [qIdx]: true }));
@@ -62,19 +72,34 @@ const MCQAssessment = ({ assessment, mode, onReset }: Props) => {
     });
     const negativeMarks = wrong * 0.25;
     const finalScore = correct - negativeMarks;
-    return { correct, wrong, unattempted, negativeMarks, finalScore, total: questions.length, passed: finalScore >= pass_mark };
+    const attempted = questions.length - unattempted;
+    return { correct, wrong, unattempted, attempted, negativeMarks, finalScore, total: questions.length, passed: finalScore >= pass_mark };
   }, [answers, questions, pass_mark]);
 
-  const handleSubmit = () => setSubmitted(true);
+  const handleFinish = () => {
+    setLocked(true);
+    setSubmitted(true);
+  };
 
   const formatTime = (s: number) => `${Math.floor(s / 60).toString().padStart(2, "0")}:${(s % 60).toString().padStart(2, "0")}`;
 
   const q = questions[current];
   const result = submitted ? calculateScore() : null;
+  const finishLabel = mode === "exam" ? "Finish Test" : "Finish Practice";
 
   if (submitted && result) {
     return (
       <div className="max-w-3xl mx-auto space-y-6">
+        {/* Auto-submit notice */}
+        {autoSubmitted && (
+          <Card className="border-orange-500/50 bg-orange-500/5">
+            <CardContent className="pt-4 flex items-center gap-2 text-sm">
+              <Clock className="h-4 w-4 text-orange-500" />
+              <span>Time expired — your answers were automatically submitted.</span>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Result Card */}
         <Card className={result.passed ? "border-green-500/50" : "border-destructive/50"}>
           <CardHeader className="text-center">
@@ -83,12 +108,19 @@ const MCQAssessment = ({ assessment, mode, onReset }: Props) => {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-center">
-              <div><div className="text-2xl font-bold">{result.total}</div><div className="text-xs text-muted-foreground">Total</div></div>
+              <div><div className="text-2xl font-bold">{result.total}</div><div className="text-xs text-muted-foreground">Total Questions</div></div>
+              <div><div className="text-2xl font-bold">{result.attempted}</div><div className="text-xs text-muted-foreground">Attempted</div></div>
               <div><div className="text-2xl font-bold text-green-600">{result.correct}</div><div className="text-xs text-muted-foreground">Correct</div></div>
               <div><div className="text-2xl font-bold text-destructive">{result.wrong}</div><div className="text-xs text-muted-foreground">Wrong</div></div>
-              <div><div className="text-2xl font-bold text-muted-foreground">{result.unattempted}</div><div className="text-xs text-muted-foreground">Unattempted</div></div>
+              <div><div className="text-2xl font-bold text-muted-foreground">{result.unattempted}</div><div className="text-xs text-muted-foreground">Unanswered</div></div>
               <div><div className="text-2xl font-bold text-orange-500">-{result.negativeMarks.toFixed(2)}</div><div className="text-xs text-muted-foreground">Negative Marks</div></div>
-              <div><div className="text-2xl font-bold">{result.finalScore.toFixed(2)}/{result.total}</div><div className="text-xs text-muted-foreground">Final Score</div></div>
+            </div>
+            <div className="mt-4 pt-4 border-t text-center">
+              <div className="text-3xl font-bold">{result.finalScore.toFixed(2)}<span className="text-lg text-muted-foreground">/{result.total}</span></div>
+              <div className="text-sm text-muted-foreground">Final Score</div>
+              <Badge className={`mt-2 ${result.passed ? "bg-green-600" : "bg-destructive"}`}>
+                {result.passed ? "PASS" : "FAIL"}
+              </Badge>
             </div>
           </CardContent>
         </Card>
@@ -108,6 +140,7 @@ const MCQAssessment = ({ assessment, mode, onReset }: Props) => {
                         <Badge variant="outline" className="shrink-0">Q{i + 1}</Badge>
                         <Badge variant="outline" className="text-xs capitalize">{q.difficulty_label}</Badge>
                         {userAns && (isCorrect ? <CheckCircle className="h-4 w-4 text-green-500" /> : <XCircle className="h-4 w-4 text-destructive" />)}
+                        {!userAns && <Badge variant="secondary" className="text-xs">Unanswered</Badge>}
                       </div>
                       <p className="text-sm font-medium mb-2">{q.question_text}</p>
                       <div className="grid gap-1.5 text-sm mb-3">
@@ -137,12 +170,17 @@ const MCQAssessment = ({ assessment, mode, onReset }: Props) => {
     <div className="max-w-3xl mx-auto space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="text-sm text-muted-foreground">Question {current + 1} / {questions.length}</div>
-        {mode === "exam" && (
-          <Badge variant={timeLeft < 300 ? "destructive" : "outline"} className="flex items-center gap-1">
-            <Clock className="h-3 w-3" /> {formatTime(timeLeft)}
-          </Badge>
-        )}
+        <div className="text-sm text-muted-foreground">
+          Question {current + 1} / {questions.length}
+          {locked && <Badge variant="secondary" className="ml-2 text-xs"><Lock className="h-3 w-3 mr-1" /> Locked</Badge>}
+        </div>
+        <div className="flex items-center gap-2">
+          {mode === "exam" && (
+            <Badge variant={timeLeft < 300 ? "destructive" : "outline"} className="flex items-center gap-1">
+              <Clock className="h-3 w-3" /> {formatTime(timeLeft)}
+            </Badge>
+          )}
+        </div>
       </div>
       <Progress value={((current + 1) / questions.length) * 100} className="h-1.5" />
 
@@ -164,8 +202,10 @@ const MCQAssessment = ({ assessment, mode, onReset }: Props) => {
                 const isCorrect = opt === q.correct_answer;
                 return (
                   <button key={opt} onClick={() => selectAnswer(current, opt)}
-                    disabled={mode === "practice" && showExplanation[current]}
+                    disabled={locked || (mode === "practice" && showExplanation[current])}
                     className={`w-full text-left px-4 py-3 rounded-lg border text-sm transition-all ${
+                      locked ? "opacity-70 cursor-not-allowed" : ""
+                    } ${
                       showResult
                         ? isCorrect ? "border-green-500 bg-green-500/10" : selected ? "border-destructive bg-destructive/10" : "border-border"
                         : selected ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/40"
@@ -197,18 +237,35 @@ const MCQAssessment = ({ assessment, mode, onReset }: Props) => {
           <ArrowLeft className="h-4 w-4 mr-1" /> Prev
         </Button>
         <div className="flex gap-2">
-          {mode === "exam" && (
-            <Button variant="destructive" size="sm" onClick={handleSubmit}>
-              <Send className="h-4 w-4 mr-1" /> Submit Exam
-            </Button>
-          )}
-          {current < questions.length - 1 ? (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" size="sm">
+                <Send className="h-4 w-4 mr-1" /> {finishLabel}
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Are you sure you want to finish?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  {Object.keys(answers).length < questions.length && (
+                    <span className="block mb-2 text-orange-500 font-medium">
+                      ⚠ You have {questions.length - Object.keys(answers).length} unanswered question(s).
+                    </span>
+                  )}
+                  This will submit all your answers and end the assessment. You cannot make changes after finishing.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel — Continue Test</AlertDialogCancel>
+                <AlertDialogAction onClick={handleFinish}>Yes — Finish Now</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+          {current < questions.length - 1 && (
             <Button size="sm" onClick={() => setCurrent(current + 1)}>
               Next <ArrowRight className="h-4 w-4 ml-1" />
             </Button>
-          ) : mode === "practice" ? (
-            <Button size="sm" onClick={handleSubmit}><Send className="h-4 w-4 mr-1" /> View Results</Button>
-          ) : null}
+          )}
         </div>
       </div>
 

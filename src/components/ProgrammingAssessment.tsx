@@ -3,9 +3,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Clock, CheckCircle, XCircle, Code, Play, Send, RotateCcw, Eye, EyeOff } from "lucide-react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger
+} from "@/components/ui/alert-dialog";
+import { Clock, CheckCircle, XCircle, Code, Send, RotateCcw, Eye, EyeOff, Lock } from "lucide-react";
 import { motion } from "framer-motion";
 
 interface TestCase {
@@ -43,23 +46,44 @@ const ProgrammingAssessment = ({ assessment, mode, skill, onReset }: Props) => {
   const [currentProblem, setCurrentProblem] = useState(0);
   const [code, setCode] = useState<Record<number, string>>({});
   const [submitted, setSubmitted] = useState(false);
+  const [locked, setLocked] = useState(false);
   const [showSolution, setShowSolution] = useState<Record<number, boolean>>({});
   const [timeLeft, setTimeLeft] = useState(timer_minutes * 60);
+  const [autoSubmitted, setAutoSubmitted] = useState(false);
 
   useEffect(() => {
     if (mode !== "exam" || submitted) return;
-    if (timeLeft <= 0) { setSubmitted(true); return; }
+    if (timeLeft <= 0) {
+      setAutoSubmitted(true);
+      handleFinish();
+      return;
+    }
     const t = setInterval(() => setTimeLeft(p => p - 1), 1000);
     return () => clearInterval(t);
   }, [mode, submitted, timeLeft]);
 
   const formatTime = (s: number) => `${Math.floor(s / 60).toString().padStart(2, "0")}:${(s % 60).toString().padStart(2, "0")}`;
 
+  const handleFinish = () => {
+    setLocked(true);
+    setSubmitted(true);
+  };
+
   const p = problems[currentProblem];
+  const finishLabel = mode === "exam" ? "Finish Test" : "Finish Practice";
 
   if (submitted) {
     return (
       <div className="max-w-4xl mx-auto space-y-6">
+        {autoSubmitted && (
+          <Card className="border-orange-500/50 bg-orange-500/5">
+            <CardContent className="pt-4 flex items-center gap-2 text-sm">
+              <Clock className="h-4 w-4 text-orange-500" />
+              <span>Time expired — your code was automatically submitted.</span>
+            </CardContent>
+          </Card>
+        )}
+
         <Card>
           <CardHeader className="text-center">
             <CardTitle className="text-2xl">📝 Assessment Complete</CardTitle>
@@ -120,18 +144,45 @@ const ProgrammingAssessment = ({ assessment, mode, skill, onReset }: Props) => {
     <div className="max-w-5xl mx-auto space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
           {problems.map((_, i) => (
             <Button key={i} variant={i === currentProblem ? "default" : "outline"} size="sm" onClick={() => setCurrentProblem(i)}>
               Problem {i + 1}
             </Button>
           ))}
+          {locked && <Badge variant="secondary" className="text-xs"><Lock className="h-3 w-3 mr-1" /> Locked</Badge>}
         </div>
-        {mode === "exam" && (
-          <Badge variant={timeLeft < 600 ? "destructive" : "outline"} className="flex items-center gap-1">
-            <Clock className="h-3 w-3" /> {formatTime(timeLeft)}
-          </Badge>
-        )}
+        <div className="flex items-center gap-2">
+          {mode === "exam" && (
+            <Badge variant={timeLeft < 600 ? "destructive" : "outline"} className="flex items-center gap-1">
+              <Clock className="h-3 w-3" /> {formatTime(timeLeft)}
+            </Badge>
+          )}
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" size="sm">
+                <Send className="h-4 w-4 mr-1" /> {finishLabel}
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Are you sure you want to finish?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  {problems.some((_, i) => !code[i]?.trim()) && (
+                    <span className="block mb-2 text-orange-500 font-medium">
+                      ⚠ Some problems have no code submitted yet.
+                    </span>
+                  )}
+                  This will submit all your code and end the assessment. You cannot edit your solutions after finishing.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel — Continue Test</AlertDialogCancel>
+                <AlertDialogAction onClick={handleFinish}>Yes — Finish Now</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -183,20 +234,11 @@ const ProgrammingAssessment = ({ assessment, mode, skill, onReset }: Props) => {
           <CardContent className="flex-1 flex flex-col gap-3">
             <Textarea
               value={code[currentProblem] || ""}
-              onChange={e => setCode(prev => ({ ...prev, [currentProblem]: e.target.value }))}
+              onChange={e => !locked && setCode(prev => ({ ...prev, [currentProblem]: e.target.value }))}
               placeholder={`Write your ${skill} code here...`}
-              className="flex-1 min-h-[350px] font-mono text-xs resize-none"
+              className={`flex-1 min-h-[350px] font-mono text-xs resize-none ${locked ? "opacity-70 cursor-not-allowed" : ""}`}
+              disabled={locked}
             />
-            {mode === "exam" && (
-              <Button variant="destructive" onClick={() => setSubmitted(true)}>
-                <Send className="h-4 w-4 mr-2" /> Submit All Solutions
-              </Button>
-            )}
-            {mode === "practice" && (
-              <Button onClick={() => setSubmitted(true)}>
-                <Send className="h-4 w-4 mr-2" /> View Results
-              </Button>
-            )}
           </CardContent>
         </Card>
       </div>
