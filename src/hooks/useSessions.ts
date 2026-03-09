@@ -6,6 +6,8 @@ import { toast } from "sonner";
 
 export type StudySession = Tables<"study_sessions">;
 
+const LEVEL_FORMULA = (xp: number) => Math.max(1, Math.floor(Math.sqrt(xp / 50)));
+
 export const useSessions = () => {
   const { user } = useAuth();
   const qc = useQueryClient();
@@ -31,15 +33,38 @@ export const useSessions = () => {
       end_time: string;
       focus_score: number;
       xp_earned: number;
+      session_type?: string;
     }) => {
+      // Calculate productivity score
+      const durationMinutes = input.duration_seconds / 60;
+      const productivityScore = Math.min(100, Math.round(
+        durationMinutes * 0.5 + input.focus_score * 0.3 + 20
+      ));
+
       const { data, error } = await supabase
         .from("study_sessions")
-        .insert({ ...input, user_id: user!.id })
+        .insert({
+          ...input,
+          user_id: user!.id,
+          focus_score: productivityScore,
+          session_type: input.session_type ?? "focus",
+        })
         .select()
         .single();
       if (error) throw error;
 
-      // Update profile XP and streak
+      // XP calculation: 1 XP per minute
+      const sessionXP = Math.round(durationMinutes);
+
+      // Log XP
+      await supabase.from("xp_log").insert({
+        user_id: user!.id,
+        xp_amount: sessionXP,
+        source: "session",
+        source_id: data.id,
+      });
+
+      // Update profile XP, streak, level
       const { data: profile } = await supabase
         .from("profiles")
         .select("*")
@@ -59,13 +84,39 @@ export const useSessions = () => {
             newStreak = 1;
           }
           longestStreak = Math.max(newStreak, longestStreak);
+
+          // Daily study bonus (100 XP) if >= 30 min today
+          const { data: todaySessions } = await supabase
+            .from("study_sessions")
+            .select("duration_seconds")
+            .eq("user_id", user!.id)
+            .gte("start_time", `${today}T00:00:00`);
+
+          const todayMinutes = (todaySessions ?? []).reduce((s, ss) => s + ss.duration_seconds / 60, 0) + durationMinutes;
+          if (todayMinutes >= 30) {
+            await supabase.from("xp_log").insert({
+              user_id: user!.id, xp_amount: 100, source: "daily_bonus",
+            });
+          }
+
+          // 7-day streak bonus
+          if (newStreak > 0 && newStreak % 7 === 0) {
+            await supabase.from("xp_log").insert({
+              user_id: user!.id, xp_amount: 200, source: "streak_bonus",
+            });
+          }
         }
 
-        const newXP = (profile.total_xp ?? 0) + input.xp_earned;
-        const newLevel = Math.floor(newXP / 250) + 1;
+        // Recalculate total XP from log
+        const { data: xpLogs } = await supabase
+          .from("xp_log")
+          .select("xp_amount")
+          .eq("user_id", user!.id);
+        const totalXP = (xpLogs ?? []).reduce((s, l) => s + l.xp_amount, 0);
+        const newLevel = LEVEL_FORMULA(totalXP);
 
         await supabase.from("profiles").update({
-          total_xp: newXP,
+          total_xp: totalXP,
           level: newLevel,
           current_streak: newStreak,
           longest_streak: longestStreak,
@@ -87,6 +138,45 @@ export const useSessions = () => {
             }).eq("id", input.subject_id);
           }
         }
+
+        // Update leaderboard snapshot
+        const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString();
+        const { data: weekSessions } = await supabase
+          .from("study_sessions")
+          .select("duration_seconds")
+          .eq("user_id", user!.id)
+          .gte("start_time", weekAgo);
+        const weeklyMinutes = Math.round((weekSessions ?? []).reduce((s, ss) => s + ss.duration_seconds, 0) / 60);
+        const { count } = await supabase
+          .from("tasks")
+          .select("*", { count: "exact", head: true })
+          .eq("user_id", user!.id)
+          .eq("completed", true);
+
+        const score = totalXP * 0.6 + weeklyMinutes * 0.2 + newStreak * 10 + (count ?? 0) * 5;
+
+        const { data: existingSnap } = await supabase
+          .from("leaderboard_snapshots")
+          .select("id")
+          .eq("user_id", user!.id)
+          .eq("snapshot_date", today)
+          .maybeSingle();
+
+        const snapData = {
+          xp_total: totalXP,
+          weekly_study_minutes: weeklyMinutes,
+          tasks_completed: count ?? 0,
+          current_streak: newStreak,
+          score,
+        };
+
+        if (existingSnap) {
+          await supabase.from("leaderboard_snapshots").update(snapData).eq("id", existingSnap.id);
+        } else {
+          await supabase.from("leaderboard_snapshots").insert({
+            ...snapData, user_id: user!.id, snapshot_date: today,
+          });
+        }
       }
 
       return data;
@@ -96,6 +186,7 @@ export const useSessions = () => {
       qc.invalidateQueries({ queryKey: ["profile"] });
       qc.invalidateQueries({ queryKey: ["subjects"] });
       qc.invalidateQueries({ queryKey: ["leaderboard"] });
+      qc.invalidateQueries({ queryKey: ["xp_log"] });
       toast.success("Session saved! XP earned 🎉");
     },
     onError: (e: any) => toast.error(e.message),
