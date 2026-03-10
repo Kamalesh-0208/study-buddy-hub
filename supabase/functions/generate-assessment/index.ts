@@ -17,12 +17,22 @@ serve(async (req) => {
     const isHTMLCSS = skillCategory === "htmlcss";
     const isExam = mode === "exam";
 
+    // Fixed timer rules per category and mode
+    const getTimer = () => {
+      if (isHTMLCSS) return 90; // 1.5 hours for web dev
+      if (isProgramming) return 60; // 1 hour for coding
+      // Theory/MCQ
+      if (isExam) return 60; // 1 hour for 40 questions
+      return 30; // 30 min for practice (10 questions)
+    };
+
+    const timerMinutes = getTimer();
+
     let systemPrompt: string;
     let toolSchema: any;
     let toolName: string;
 
     if (isHTMLCSS) {
-      // HTML/CSS webpage recreation challenge
       const webpageTopic = topic.split("|")[0] || "Landing Page";
       const extraReqs = topic.split("|")[1] || "";
 
@@ -36,7 +46,6 @@ serve(async (req) => {
         "Use semantic HTML elements",
         "Use a color gradient",
       ];
-      // Pick 3-4 random requirements
       const shuffled = requirementPool.sort(() => Math.random() - 0.5);
       const numReqs = difficulty === "easy" ? 2 : difficulty === "hard" ? 4 : 3;
       const selectedReqs = shuffled.slice(0, numReqs);
@@ -46,7 +55,7 @@ serve(async (req) => {
 
 Topic: "${webpageTopic}" webpage
 Difficulty: "${difficulty}"
-Mode: ${isExam ? "Exam (1.5 hours, no hints)" : "Practice (with hints and solution)"}
+Mode: ${isExam ? `Exam (${timerMinutes} minutes, no hints)` : "Practice (with hints and solution)"}
 
 The student must recreate a webpage that matches your reference design.
 
@@ -68,7 +77,9 @@ Difficulty "${difficulty}" means:
 - Easy: Simple layout, few components, basic styling
 - Medium: Moderate layout with multiple sections, some interactive elements
 - Hard: Complex layout, animations, responsive design, advanced CSS
-- Mixed: Combination of easy and complex elements`;
+- Mixed: Combination of easy and complex elements
+
+IMPORTANT: Set timer_minutes to exactly ${timerMinutes}.`;
 
       toolName = "generate_htmlcss_assessment";
       toolSchema = {
@@ -129,7 +140,7 @@ Difficulty "${difficulty}" means:
       };
     } else if (isProgramming) {
       const questionCount = 2;
-      systemPrompt = `You are an expert programming assessment generator for students. Generate ${questionCount} coding problems for the skill "${skill}" on the topic "${topic}" at "${difficulty}" difficulty.
+      systemPrompt = `You are an expert programming assessment generator for students. Generate exactly ${questionCount} coding problems for the skill "${skill}" on the topic "${topic}" at "${difficulty}" difficulty.
 
 Each problem must be a real coding challenge appropriate for the difficulty level. Include clear problem descriptions, constraints, and test cases.
 
@@ -145,7 +156,9 @@ For each problem provide:
 - Explanation of the solution logic
 - Common mistakes students make
 
-${isExam ? "This is for EXAM mode - do NOT include solutions or hints in the questions themselves. Solutions will be revealed after submission." : "This is for PRACTICE mode - include solutions and explanations with each problem."}`;
+${isExam ? "This is for EXAM mode - do NOT include solutions or hints in the questions themselves. Solutions will be revealed after submission." : "This is for PRACTICE mode - include solutions and explanations with each problem. Students can view hints and sample solutions while practicing."}
+
+IMPORTANT: Set timer_minutes to exactly ${timerMinutes}.`;
 
       toolName = "generate_programming_assessment";
       toolSchema = {
@@ -204,6 +217,7 @@ ${isExam ? "This is for EXAM mode - do NOT include solutions or hints in the que
     } else {
       // One-mark / theory questions
       const questionCount = isExam ? 40 : 10;
+      const passMark = isExam ? 24 : 6;
       let difficultyInstruction = "";
       if (difficulty === "mixed" && isExam) {
         difficultyInstruction = "Generate exactly 15 Easy, 15 Medium, and 10 Hard questions.";
@@ -224,7 +238,9 @@ For each question provide:
 - Detailed explanation with step-by-step solving method
 - Difficulty label (easy/medium/hard)
 
-${isExam ? "This is EXAM mode with negative marking: +1 for correct, -0.25 for wrong. Pass mark is 24/40." : "This is PRACTICE mode - show explanations after each question."}`;
+${isExam ? `This is EXAM mode with negative marking: +1 for correct, -0.25 for wrong. Pass mark is ${passMark}/${questionCount}. Timer is ${timerMinutes} minutes.` : "This is PRACTICE mode - show explanations after each question. Students get instant feedback and can learn from mistakes."}
+
+IMPORTANT: Set timer_minutes to exactly ${timerMinutes}, total_questions to ${questionCount}, pass_mark to ${passMark}.`;
 
       toolName = "generate_mcq_assessment";
       toolSchema = {
@@ -269,6 +285,7 @@ ${isExam ? "This is EXAM mode with negative marking: +1 for correct, -0.25 for w
       };
     }
 
+    // Use gemini-2.5-flash for faster generation
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -276,7 +293,7 @@ ${isExam ? "This is EXAM mode with negative marking: +1 for correct, -0.25 for w
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: `Generate the assessment now for: Skill="${skill}", Topic="${topic}", Difficulty="${difficulty}", Mode="${mode}".` },
@@ -307,6 +324,17 @@ ${isExam ? "This is EXAM mode with negative marking: +1 for correct, -0.25 for w
     if (!toolCall) throw new Error("No tool call in AI response");
 
     const assessment = JSON.parse(toolCall.function.arguments);
+
+    // Override timer to enforce correct values regardless of AI output
+    if (assessment.timer_minutes !== undefined) {
+      assessment.timer_minutes = timerMinutes;
+    }
+    if (assessment.pass_mark !== undefined && !isProgramming && !isHTMLCSS) {
+      assessment.pass_mark = isExam ? 24 : 6;
+    }
+    if (assessment.total_questions !== undefined && !isProgramming && !isHTMLCSS) {
+      assessment.total_questions = isExam ? 40 : 10;
+    }
 
     return new Response(JSON.stringify({
       type: isHTMLCSS ? "htmlcss" : isProgramming ? "programming" : "mcq",

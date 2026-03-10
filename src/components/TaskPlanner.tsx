@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Clock, CheckCircle2, Circle, Trash2, Edit3, X, Save } from "lucide-react";
+import { Plus, Clock, CheckCircle2, Circle, Trash2, Edit3, X, Save, ListPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTasks } from "@/hooks/useTasks";
 import { useSubjects } from "@/hooks/useSubjects";
@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
+import CreateTaskModal from "./CreateTaskModal";
 
 const priorityColors: Record<string, string> = {
   high: "bg-destructive/10 text-destructive",
@@ -19,25 +20,30 @@ const TaskPlanner = () => {
   const { subjects } = useSubjects();
   const { user } = useAuth();
   const qc = useQueryClient();
-  const [newTitle, setNewTitle] = useState("");
-  const [newPriority, setNewPriority] = useState<string>("medium");
-  const [newDeadline, setNewDeadline] = useState("");
-  const [newSubject, setNewSubject] = useState<string>("");
+
+  // Quick-add state
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [quickTitle, setQuickTitle] = useState("");
+  const [quickPriority, setQuickPriority] = useState("medium");
+  const [quickSubject, setQuickSubject] = useState("");
+
+  // Edit state
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
 
-  const handleAdd = () => {
-    if (!newTitle.trim()) return;
+  // Modal state
+  const [modalOpen, setModalOpen] = useState(false);
+
+  const handleQuickAdd = () => {
+    if (!quickTitle.trim()) return;
     addTask.mutate({
-      title: newTitle.trim(),
-      priority: newPriority,
-      deadline: newDeadline || undefined,
-      subject_id: newSubject || undefined,
+      title: quickTitle.trim(),
+      priority: quickPriority,
+      subject_id: quickSubject || undefined,
     });
-    setNewTitle("");
-    setNewPriority("medium");
-    setNewDeadline("");
-    setNewSubject("");
+    setQuickTitle("");
+    setQuickPriority("medium");
+    setQuickSubject("");
   };
 
   const saveEdit = (id: string) => {
@@ -47,12 +53,10 @@ const TaskPlanner = () => {
 
   const handleToggle = async (id: string, completed: boolean) => {
     toggleTask.mutate({ id, completed });
-    // Award 50 XP for completing a task + log it
     if (!completed && user) {
       await supabase.from("xp_log").insert({
         user_id: user.id, xp_amount: 50, source: "task", source_id: id,
       });
-      // Recalculate total XP
       const { data: xpLogs } = await supabase
         .from("xp_log")
         .select("xp_amount")
@@ -84,130 +88,168 @@ const TaskPlanner = () => {
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, delay: 0.1 }}
-      className="rounded-2xl glass-strong p-6"
-    >
-      <div className="flex items-center justify-between mb-5">
-        <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
-          <div className="icon-bg h-8 w-8">
-            <ListIcon className="h-4 w-4 text-primary" />
-          </div>
-          Tasks
-        </h3>
-        <span className="text-xs text-muted-foreground font-medium">{doneCount}/{tasks.length} done</span>
-      </div>
+    <>
+      <CreateTaskModal open={modalOpen} onOpenChange={setModalOpen} />
 
-      <div className="h-1.5 rounded-full bg-secondary mb-5 overflow-hidden">
-        <motion.div
-          className="h-full rounded-full gradient-bg"
-          animate={{ width: `${progressPct}%` }}
-          transition={{ duration: 0.7, ease: "easeOut" }}
-        />
-      </div>
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.1 }}
+        className="rounded-2xl glass-strong p-6"
+      >
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+            <div className="icon-bg h-8 w-8">
+              <ListIcon className="h-4 w-4 text-primary" />
+            </div>
+            Tasks
+          </h3>
+          <span className="text-xs text-muted-foreground font-medium">{doneCount}/{tasks.length} done</span>
+        </div>
 
-      <div className="space-y-2 mb-4 max-h-[320px] overflow-y-auto scrollbar-thin pr-1">
-        <AnimatePresence>
-          {tasks.map((task) => (
-            <motion.div
-              key={task.id}
-              layout
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 20, height: 0 }}
-              className={`group flex items-center gap-3 rounded-xl p-3 transition-all duration-200 hover:bg-secondary/50 ${
-                task.completed ? "opacity-50" : ""
-              }`}
-            >
-              <button onClick={() => handleToggle(task.id, !!task.completed)} className="shrink-0">
-                {task.completed ? (
-                  <CheckCircle2 className="h-[18px] w-[18px] text-study-success" />
-                ) : (
-                  <Circle className="h-[18px] w-[18px] text-muted-foreground/40" />
-                )}
-              </button>
-              <div className="flex-1 min-w-0">
-                {editingId === task.id ? (
-                  <div className="flex gap-1">
-                    <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && saveEdit(task.id)}
-                      className="flex-1 bg-secondary/50 rounded-lg px-2 py-1 text-sm text-foreground outline-none border border-primary/30"
-                      autoFocus />
-                    <button onClick={() => saveEdit(task.id)}><Save className="h-3.5 w-3.5 text-study-success" /></button>
-                    <button onClick={() => setEditingId(null)}><X className="h-3.5 w-3.5 text-muted-foreground" /></button>
-                  </div>
-                ) : (
-                  <>
-                    <p className={`text-sm font-medium truncate ${task.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
-                      {task.title}
-                    </p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${priorityColors[task.priority ?? "medium"]}`}>
-                        {task.priority}
-                      </span>
-                      {task.deadline && (
-                        <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
-                          <Clock className="h-2.5 w-2.5" /> {formatDeadline(task.deadline)}
-                        </span>
-                      )}
-                      {(task as any).subjects?.name && (
-                        <span className="text-[10px] text-muted-foreground">{(task as any).subjects.name}</span>
-                      )}
+        <div className="h-1.5 rounded-full bg-secondary mb-5 overflow-hidden">
+          <motion.div
+            className="h-full rounded-full gradient-bg"
+            animate={{ width: `${progressPct}%` }}
+            transition={{ duration: 0.7, ease: "easeOut" }}
+          />
+        </div>
+
+        <div className="space-y-2 mb-4 max-h-[320px] overflow-y-auto scrollbar-thin pr-1">
+          <AnimatePresence>
+            {tasks.map((task) => (
+              <motion.div
+                key={task.id}
+                layout
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20, height: 0 }}
+                className={`group flex items-center gap-3 rounded-xl p-3 transition-all duration-200 hover:bg-secondary/50 ${
+                  task.completed ? "opacity-50" : ""
+                }`}
+              >
+                <button onClick={() => handleToggle(task.id, !!task.completed)} className="shrink-0">
+                  {task.completed ? (
+                    <CheckCircle2 className="h-[18px] w-[18px] text-study-success" />
+                  ) : (
+                    <Circle className="h-[18px] w-[18px] text-muted-foreground/40" />
+                  )}
+                </button>
+                <div className="flex-1 min-w-0">
+                  {editingId === task.id ? (
+                    <div className="flex gap-1">
+                      <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && saveEdit(task.id)}
+                        className="flex-1 bg-secondary/50 rounded-lg px-2 py-1 text-sm text-foreground outline-none border border-primary/30"
+                        autoFocus />
+                      <button onClick={() => saveEdit(task.id)}><Save className="h-3.5 w-3.5 text-study-success" /></button>
+                      <button onClick={() => setEditingId(null)}><X className="h-3.5 w-3.5 text-muted-foreground" /></button>
                     </div>
-                  </>
-                )}
-              </div>
-              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button onClick={() => { setEditingId(task.id); setEditTitle(task.title); }}>
-                  <Edit3 className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
-                </button>
-                <button onClick={() => deleteTask.mutate(task.id)}>
-                  <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
-                </button>
+                  ) : (
+                    <>
+                      <p className={`text-sm font-medium truncate ${task.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
+                        {task.title}
+                      </p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${priorityColors[task.priority ?? "medium"]}`}>
+                          {task.priority}
+                        </span>
+                        {task.deadline && (
+                          <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                            <Clock className="h-2.5 w-2.5" /> {formatDeadline(task.deadline)}
+                          </span>
+                        )}
+                        {(task as any).subjects?.name && (
+                          <span className="text-[10px] text-muted-foreground">{(task as any).subjects.name}</span>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button onClick={() => { setEditingId(task.id); setEditTitle(task.title); }}>
+                    <Edit3 className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
+                  </button>
+                  <button onClick={() => deleteTask.mutate(task.id)}>
+                    <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
+                  </button>
+                </div>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </div>
+
+        {/* Quick Add Bar */}
+        <AnimatePresence>
+          {quickAddOpen && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="overflow-hidden mb-3"
+            >
+              <div className="space-y-2 p-3 rounded-xl bg-secondary/30 border border-border/40">
+                <input
+                  type="text"
+                  value={quickTitle}
+                  onChange={(e) => setQuickTitle(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleQuickAdd()}
+                  placeholder="Task name — press Enter to add"
+                  className="w-full bg-card rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 outline-none border border-border/40 focus:border-primary/40"
+                  autoFocus
+                />
+                <div className="flex gap-1.5 items-center flex-wrap">
+                  {(["high", "medium", "low"] as const).map((p) => (
+                    <button
+                      key={p}
+                      onClick={() => setQuickPriority(p)}
+                      className={`px-2 py-0.5 rounded-lg text-[10px] font-semibold transition-all ${
+                        quickPriority === p ? priorityColors[p] : "bg-secondary/40 text-muted-foreground"
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                  {subjects.length > 0 && (
+                    <select
+                      value={quickSubject}
+                      onChange={(e) => setQuickSubject(e.target.value)}
+                      className="ml-auto px-2 py-0.5 rounded-lg text-[10px] bg-secondary/40 text-muted-foreground border-none outline-none"
+                    >
+                      <option value="">No subject</option>
+                      {subjects.map((s) => (
+                        <option key={s.id} value={s.id}>{s.name}</option>
+                      ))}
+                    </select>
+                  )}
+                </div>
               </div>
             </motion.div>
-          ))}
+          )}
         </AnimatePresence>
-      </div>
 
-      <div className="space-y-2">
+        {/* Action buttons */}
         <div className="flex gap-2">
-          <input type="text" value={newTitle} onChange={(e) => setNewTitle(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleAdd()}
-            placeholder="Add a new task..."
-            className="flex-1 rounded-xl bg-secondary/50 border border-border/40 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 outline-none focus:border-primary/40 focus:bg-card transition-all"
-          />
-          <Button size="sm" onClick={handleAdd} disabled={addTask.isPending} className="rounded-xl h-9 px-3 gradient-bg text-primary-foreground border-0">
-            <Plus className="h-4 w-4" />
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setQuickAddOpen(!quickAddOpen)}
+            className="flex-1 rounded-xl h-9 text-xs"
+          >
+            <Plus className="h-3.5 w-3.5 mr-1" />
+            Quick Add
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => setModalOpen(true)}
+            className="flex-1 rounded-xl h-9 text-xs gradient-bg text-primary-foreground border-0"
+          >
+            <ListPlus className="h-3.5 w-3.5 mr-1" />
+            Create Task
           </Button>
         </div>
-        <div className="flex gap-1.5 flex-wrap">
-          {(["high", "medium", "low"] as const).map((p) => (
-            <button key={p} onClick={() => setNewPriority(p)}
-              className={`px-2 py-0.5 rounded-lg text-[10px] font-semibold transition-all ${
-                newPriority === p ? priorityColors[p] : "bg-secondary/40 text-muted-foreground"
-              }`}
-            >
-              {p}
-            </button>
-          ))}
-          {subjects.length > 0 && (
-            <select value={newSubject} onChange={(e) => setNewSubject(e.target.value)}
-              className="ml-auto px-2 py-0.5 rounded-lg text-[10px] bg-secondary/40 text-muted-foreground border-none outline-none">
-              <option value="">No subject</option>
-              {subjects.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </select>
-          )}
-          <input type="date" value={newDeadline} onChange={(e) => setNewDeadline(e.target.value)}
-            className="px-2 py-0.5 rounded-lg text-[10px] bg-secondary/40 text-muted-foreground border-none outline-none"
-          />
-        </div>
-      </div>
-    </motion.div>
+      </motion.div>
+    </>
   );
 };
 
