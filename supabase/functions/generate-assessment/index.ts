@@ -285,7 +285,7 @@ IMPORTANT: Set timer_minutes to exactly ${timerMinutes}, total_questions to ${qu
       };
     }
 
-    // Use gemini-2.5-flash for faster generation
+    // Use gemini-3-flash-preview for fast, reliable generation
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -293,13 +293,14 @@ IMPORTANT: Set timer_minutes to exactly ${timerMinutes}, total_questions to ${qu
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "google/gemini-3-flash-preview",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Generate the assessment now for: Skill="${skill}", Topic="${topic}", Difficulty="${difficulty}", Mode="${mode}".` },
+          { role: "user", content: `Generate the assessment now for: Skill="${skill}", Topic="${topic}", Difficulty="${difficulty}", Mode="${mode}". You MUST call the provided tool function with the result.` },
         ],
         tools: [toolSchema],
         tool_choice: { type: "function", function: { name: toolName } },
+        temperature: 0.7,
       }),
     });
 
@@ -320,10 +321,70 @@ IMPORTANT: Set timer_minutes to exactly ${timerMinutes}, total_questions to ${qu
     }
 
     const data = await response.json();
+    
+    let assessment: any;
     const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
-    if (!toolCall) throw new Error("No tool call in AI response");
-
-    const assessment = JSON.parse(toolCall.function.arguments);
+    
+    if (toolCall) {
+      // Primary path: tool call response
+      assessment = JSON.parse(toolCall.function.arguments);
+    } else {
+      // Fallback: extract JSON from content text
+      const content = data.choices?.[0]?.message?.content || "";
+      console.log("No tool call, attempting JSON extraction from content");
+      
+      // Try to find JSON in the content
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try {
+          assessment = JSON.parse(jsonMatch[0]);
+        } catch (parseErr) {
+          console.error("Failed to parse extracted JSON:", parseErr);
+        }
+      }
+      
+      // If still no assessment, retry once without tool_choice constraint
+      if (!assessment) {
+        console.log("Retrying without tool_choice constraint...");
+        const retryResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "google/gemini-3-flash-preview",
+            messages: [
+              { role: "system", content: systemPrompt + "\n\nIMPORTANT: You MUST respond by calling the provided tool function. Do not respond with plain text." },
+              { role: "user", content: `Generate the assessment now for: Skill="${skill}", Topic="${topic}", Difficulty="${difficulty}", Mode="${mode}".` },
+            ],
+            tools: [toolSchema],
+            temperature: 0.7,
+          }),
+        });
+        
+        if (retryResponse.ok) {
+          const retryData = await retryResponse.json();
+          const retryToolCall = retryData.choices?.[0]?.message?.tool_calls?.[0];
+          if (retryToolCall) {
+            assessment = JSON.parse(retryToolCall.function.arguments);
+          } else {
+            // Last resort: parse from retry content
+            const retryContent = retryData.choices?.[0]?.message?.content || "";
+            const retryJsonMatch = retryContent.match(/\{[\s\S]*\}/);
+            if (retryJsonMatch) {
+              assessment = JSON.parse(retryJsonMatch[0]);
+            }
+          }
+        } else {
+          await retryResponse.text(); // consume body
+        }
+      }
+      
+      if (!assessment) {
+        throw new Error("Failed to generate assessment after retries. Please try again.");
+      }
+    }
 
     // Override timer to enforce correct values regardless of AI output
     if (assessment.timer_minutes !== undefined) {
