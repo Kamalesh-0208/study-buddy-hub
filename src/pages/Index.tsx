@@ -9,6 +9,7 @@ import Gamification from "@/components/Gamification";
 import AIInsights from "@/components/AIInsights";
 import StatsGrid from "@/components/StatsGrid";
 import StudyHeatmap from "@/components/StudyHeatmap";
+import SkillProgressAnalyzer from "@/components/SkillProgressAnalyzer";
 
 const Index = () => {
   const { profile } = useAuth();
