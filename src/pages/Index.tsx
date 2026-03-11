@@ -9,6 +9,7 @@ import Gamification from "@/components/Gamification";
 import AIInsights from "@/components/AIInsights";
 import StatsGrid from "@/components/StatsGrid";
 import StudyHeatmap from "@/components/StudyHeatmap";
+import SkillProgressAnalyzer from "@/components/SkillProgressAnalyzer";
 
 const Index = () => {
   const { profile } = useAuth();
@@ -43,7 +44,10 @@ const Index = () => {
         <AIInsights />
       </div>
 
-      <StudyHeatmap />
+      <div className="grid gap-6 lg:grid-cols-2">
+        <SkillProgressAnalyzer />
+        <StudyHeatmap />
+      </div>
     </div>
   );
 };
