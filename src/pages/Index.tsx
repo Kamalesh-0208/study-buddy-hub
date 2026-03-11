@@ -44,7 +44,10 @@ const Index = () => {
         <AIInsights />
       </div>
 
-      <StudyHeatmap />
+      <div className="grid gap-6 lg:grid-cols-2">
+        <SkillProgressAnalyzer />
+        <StudyHeatmap />
+      </div>
     </div>
   );
 };
