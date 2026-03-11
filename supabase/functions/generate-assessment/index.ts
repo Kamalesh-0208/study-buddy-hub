@@ -5,6 +5,33 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+function extractJsonFromResponse(response: string): unknown {
+  let cleaned = response
+    .replace(/```json\s*/gi, "")
+    .replace(/```\s*/g, "")
+    .trim();
+
+  const jsonStart = cleaned.search(/[\{\[]/);
+  if (jsonStart === -1) throw new Error("No JSON found in response");
+  const openChar = cleaned[jsonStart];
+  const closeChar = openChar === '[' ? ']' : '}';
+  const jsonEnd = cleaned.lastIndexOf(closeChar);
+  if (jsonEnd === -1) throw new Error("No closing JSON bracket found");
+
+  cleaned = cleaned.substring(jsonStart, jsonEnd + 1);
+
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    // Fix common issues
+    cleaned = cleaned
+      .replace(/,\s*}/g, "}")
+      .replace(/,\s*]/g, "]")
+      .replace(/[\x00-\x1F\x7F]/g, (c) => c === '\n' || c === '\t' ? c : "");
+    return JSON.parse(cleaned);
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -17,16 +44,17 @@ serve(async (req) => {
     const isHTMLCSS = skillCategory === "htmlcss";
     const isExam = mode === "exam";
 
-    // Fixed timer rules per category and mode
+    // Timer rules
     const getTimer = () => {
-      if (isHTMLCSS) return 90; // 1.5 hours for web dev
-      if (isProgramming) return 60; // 1 hour for coding
-      // Theory/MCQ
-      if (isExam) return 60; // 1 hour for 40 questions
-      return 30; // 30 min for practice (10 questions)
+      if (isHTMLCSS) return 90;
+      if (isProgramming) return 60;
+      return 60; // 60 min for both exam and practice MCQ
     };
-
     const timerMinutes = getTimer();
+
+    // Question counts: 40 for both exam and practice MCQ
+    const mcqCount = 40;
+    const mcqPassMark = isExam ? 24 : 24;
 
     let systemPrompt: string;
     let toolSchema: any;
@@ -37,49 +65,20 @@ serve(async (req) => {
       const extraReqs = topic.split("|")[1] || "";
 
       const requirementPool = [
-        "Use Flexbox Layout",
-        "Use CSS Grid Layout",
-        "Use hover effects on buttons/links",
-        "Use responsive design with media queries",
-        "Use custom Google Fonts",
-        "Use CSS transitions or animations",
-        "Use semantic HTML elements",
-        "Use a color gradient",
+        "Use Flexbox Layout", "Use CSS Grid Layout", "Use hover effects on buttons/links",
+        "Use responsive design with media queries", "Use custom Google Fonts",
+        "Use CSS transitions or animations", "Use semantic HTML elements", "Use a color gradient",
       ];
       const shuffled = requirementPool.sort(() => Math.random() - 0.5);
       const numReqs = difficulty === "easy" ? 2 : difficulty === "hard" ? 4 : 3;
       const selectedReqs = shuffled.slice(0, numReqs);
       if (extraReqs) selectedReqs.push(extraReqs);
 
-      systemPrompt = `You are an expert HTML/CSS assessment generator for students. Generate a webpage recreation challenge.
-
-Topic: "${webpageTopic}" webpage
-Difficulty: "${difficulty}"
-Mode: ${isExam ? `Exam (${timerMinutes} minutes, no hints)` : "Practice (with hints and solution)"}
-
-The student must recreate a webpage that matches your reference design.
-
-REQUIRED IMPLEMENTATION RULES (student MUST follow these):
-${selectedReqs.map((r, i) => `${i + 1}. ${r}`).join("\n")}
-
-Generate:
-1. A detailed design description of the webpage to build
-2. Design specifications (colors, typography, components, spacing)
-3. The implementation requirements with descriptions
-4. Complete reference HTML code (index.html)
-5. Complete reference CSS code (styles.css)
-6. Layout explanation
-7. ${isExam ? "No hints" : "5 helpful hints for students"}
-8. Evaluation criteria
-
-The reference code should be a complete, working webpage that a student could open in a browser.
-Difficulty "${difficulty}" means:
-- Easy: Simple layout, few components, basic styling
-- Medium: Moderate layout with multiple sections, some interactive elements
-- Hard: Complex layout, animations, responsive design, advanced CSS
-- Mixed: Combination of easy and complex elements
-
-IMPORTANT: Set timer_minutes to exactly ${timerMinutes}.`;
+      systemPrompt = `You are an expert HTML/CSS assessment generator. Generate a webpage recreation challenge.
+Topic: "${webpageTopic}" webpage. Difficulty: "${difficulty}". Mode: ${isExam ? `Exam (${timerMinutes} minutes, no hints)` : "Practice (with hints and solution)"}.
+REQUIRED RULES:\n${selectedReqs.map((r, i) => `${i + 1}. ${r}`).join("\n")}
+Generate: design description, specs, requirements, reference HTML, reference CSS, layout explanation, ${isExam ? "no hints" : "5 hints"}, evaluation criteria.
+Set timer_minutes to ${timerMinutes}.`;
 
       toolName = "generate_htmlcss_assessment";
       toolSchema = {
@@ -106,18 +105,13 @@ IMPORTANT: Set timer_minutes to exactly ${timerMinutes}.`;
                       responsive_notes: { type: "string" },
                     },
                     required: ["layout_description", "color_scheme", "typography", "components", "spacing_notes", "responsive_notes"],
-                    additionalProperties: false,
                   },
                   requirements: {
                     type: "array",
                     items: {
                       type: "object",
-                      properties: {
-                        rule: { type: "string" },
-                        description: { type: "string" },
-                      },
+                      properties: { rule: { type: "string" }, description: { type: "string" } },
                       required: ["rule", "description"],
-                      additionalProperties: false,
                     },
                   },
                   reference_html: { type: "string" },
@@ -128,37 +122,19 @@ IMPORTANT: Set timer_minutes to exactly ${timerMinutes}.`;
                   difficulty_label: { type: "string" },
                 },
                 required: ["title", "design_description", "design_spec", "requirements", "reference_html", "reference_css", "layout_explanation", "hints", "evaluation_criteria", "difficulty_label"],
-                additionalProperties: false,
               },
               timer_minutes: { type: "number" },
               instructions: { type: "string" },
             },
             required: ["challenge", "timer_minutes", "instructions"],
-            additionalProperties: false,
           },
         },
       };
     } else if (isProgramming) {
-      const questionCount = 2;
-      systemPrompt = `You are an expert programming assessment generator for students. Generate exactly ${questionCount} coding problems for the skill "${skill}" on the topic "${topic}" at "${difficulty}" difficulty.
-
-Each problem must be a real coding challenge appropriate for the difficulty level. Include clear problem descriptions, constraints, and test cases.
-
-For each problem provide:
-- A clear title
-- Problem description (detailed)
-- Input format description
-- Output format description
-- Constraints
-- 2 sample test cases (input + expected output)
-- 2 hidden test cases (input + expected output) for validation
-- A complete correct solution in ${skill}
-- Explanation of the solution logic
-- Common mistakes students make
-
-${isExam ? "This is for EXAM mode - do NOT include solutions or hints in the questions themselves. Solutions will be revealed after submission." : "This is for PRACTICE mode - include solutions and explanations with each problem. Students can view hints and sample solutions while practicing."}
-
-IMPORTANT: Set timer_minutes to exactly ${timerMinutes}.`;
+      systemPrompt = `You are an expert programming assessment generator. Generate exactly 2 coding problems for "${skill}" on topic "${topic}" at "${difficulty}" difficulty.
+Each problem needs: title, description, input_format, output_format, constraints, 2 sample_tests, 2 hidden_tests, solution_code in ${skill}, solution_explanation, common_mistakes, difficulty_label.
+${isExam ? "EXAM mode - solutions revealed after submission." : "PRACTICE mode - include solutions."}
+Set timer_minutes to ${timerMinutes}.`;
 
       toolName = "generate_programming_assessment";
       toolSchema = {
@@ -179,68 +155,37 @@ IMPORTANT: Set timer_minutes to exactly ${timerMinutes}.`;
                     input_format: { type: "string" },
                     output_format: { type: "string" },
                     constraints: { type: "string" },
-                    sample_tests: {
-                      type: "array",
-                      items: {
-                        type: "object",
-                        properties: { input: { type: "string" }, expected_output: { type: "string" } },
-                        required: ["input", "expected_output"],
-                        additionalProperties: false,
-                      },
-                    },
-                    hidden_tests: {
-                      type: "array",
-                      items: {
-                        type: "object",
-                        properties: { input: { type: "string" }, expected_output: { type: "string" } },
-                        required: ["input", "expected_output"],
-                        additionalProperties: false,
-                      },
-                    },
+                    sample_tests: { type: "array", items: { type: "object", properties: { input: { type: "string" }, expected_output: { type: "string" } }, required: ["input", "expected_output"] } },
+                    hidden_tests: { type: "array", items: { type: "object", properties: { input: { type: "string" }, expected_output: { type: "string" } }, required: ["input", "expected_output"] } },
                     solution_code: { type: "string" },
                     solution_explanation: { type: "string" },
                     common_mistakes: { type: "array", items: { type: "string" } },
                     difficulty_label: { type: "string" },
                   },
                   required: ["title", "description", "input_format", "output_format", "constraints", "sample_tests", "hidden_tests", "solution_code", "solution_explanation", "common_mistakes", "difficulty_label"],
-                  additionalProperties: false,
                 },
               },
               timer_minutes: { type: "number" },
               instructions: { type: "string" },
             },
             required: ["problems", "timer_minutes", "instructions"],
-            additionalProperties: false,
           },
         },
       };
     } else {
-      // One-mark / theory questions
-      const questionCount = isExam ? 40 : 10;
-      const passMark = isExam ? 24 : 6;
+      // MCQ - always 40 questions
       let difficultyInstruction = "";
-      if (difficulty === "mixed" && isExam) {
+      if (difficulty === "mixed") {
         difficultyInstruction = "Generate exactly 15 Easy, 15 Medium, and 10 Hard questions.";
       } else {
         difficultyInstruction = `All questions should be ${difficulty} difficulty.`;
       }
 
-      systemPrompt = `You are an expert assessment question generator for students. Generate exactly ${questionCount} multiple choice questions for the skill "${skill}" on the topic "${topic}".
-
+      systemPrompt = `You are an expert MCQ generator. Generate exactly ${mcqCount} multiple choice questions for "${skill}" on "${topic}".
 ${difficultyInstruction}
-
-Each question must have exactly 4 options (A, B, C, D) with exactly one correct answer. Questions must follow standard competitive exam patterns and be educationally sound.
-
-For each question provide:
-- Question text
-- 4 options
-- Correct answer letter (A/B/C/D)
-- Detailed explanation with step-by-step solving method
-- Difficulty label (easy/medium/hard)
-
-${isExam ? `This is EXAM mode with negative marking: +1 for correct, -0.25 for wrong. Pass mark is ${passMark}/${questionCount}. Timer is ${timerMinutes} minutes.` : "This is PRACTICE mode - show explanations after each question. Students get instant feedback and can learn from mistakes."}
-
-IMPORTANT: Set timer_minutes to exactly ${timerMinutes}, total_questions to ${questionCount}, pass_mark to ${passMark}.`;
+Each question: question_text, 4 options (A/B/C/D), correct_answer letter, explanation, difficulty_label.
+${isExam ? `EXAM mode: +1 correct, -0.25 wrong. Pass mark ${mcqPassMark}/${mcqCount}. Timer ${timerMinutes} min.` : `PRACTICE mode: instant feedback, explanations shown. Timer ${timerMinutes} min.`}
+Set timer_minutes=${timerMinutes}, total_questions=${mcqCount}, pass_mark=${mcqPassMark}.`;
 
       toolName = "generate_mcq_assessment";
       toolSchema = {
@@ -262,14 +207,12 @@ IMPORTANT: Set timer_minutes to exactly ${timerMinutes}, total_questions to ${qu
                       type: "object",
                       properties: { A: { type: "string" }, B: { type: "string" }, C: { type: "string" }, D: { type: "string" } },
                       required: ["A", "B", "C", "D"],
-                      additionalProperties: false,
                     },
                     correct_answer: { type: "string" },
                     explanation: { type: "string" },
                     difficulty_label: { type: "string" },
                   },
                   required: ["question_number", "question_text", "options", "correct_answer", "explanation", "difficulty_label"],
-                  additionalProperties: false,
                 },
               },
               timer_minutes: { type: "number" },
@@ -279,130 +222,106 @@ IMPORTANT: Set timer_minutes to exactly ${timerMinutes}, total_questions to ${qu
               instructions: { type: "string" },
             },
             required: ["questions", "timer_minutes", "total_questions", "pass_mark", "scoring_rules", "instructions"],
-            additionalProperties: false,
           },
         },
       };
     }
 
-    // Use gemini-3-flash-preview for fast, reliable generation
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+    // Call AI with tool calling
+    const makeRequest = async (useToolChoice: boolean) => {
+      const body: any = {
+        model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Generate the assessment now for: Skill="${skill}", Topic="${topic}", Difficulty="${difficulty}", Mode="${mode}". You MUST call the provided tool function with the result.` },
+          { role: "user", content: `Generate the assessment now for: Skill="${skill}", Topic="${topic}", Difficulty="${difficulty}", Mode="${mode}". Call the provided tool function with the result.` },
         ],
         tools: [toolSchema],
-        tool_choice: { type: "function", function: { name: toolName } },
         temperature: 0.7,
-      }),
-    });
+      };
+      if (useToolChoice) {
+        body.tool_choice = { type: "function", function: { name: toolName } };
+      }
+      return fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      });
+    };
+
+    const parseResponse = (data: any): any => {
+      // Try tool call first
+      const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+      if (toolCall?.function?.arguments) {
+        try {
+          return JSON.parse(toolCall.function.arguments);
+        } catch {
+          // Try fixing the JSON
+          return extractJsonFromResponse(toolCall.function.arguments);
+        }
+      }
+
+      // Fallback: extract from content
+      const content = data.choices?.[0]?.message?.content;
+      if (content) {
+        console.log("No tool call found, extracting JSON from content");
+        return extractJsonFromResponse(content);
+      }
+
+      return null;
+    };
+
+    // Attempt 1: with tool_choice
+    let response = await makeRequest(true);
 
     if (!response.ok) {
+      const status = response.status;
       const errText = await response.text();
-      console.error("AI gateway error:", response.status, errText);
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limit exceeded. Please try again later." }), {
+      console.error("AI gateway error:", status, errText);
+      if (status === 429) {
+        return new Response(JSON.stringify({ error: "Rate limit exceeded. Please try again in a moment." }), {
           status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (response.status === 402) {
+      if (status === 402) {
         return new Response(JSON.stringify({ error: "AI credits exhausted. Please add credits." }), {
           status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      throw new Error(`AI gateway error: ${response.status}`);
+      throw new Error(`AI gateway error: ${status}`);
     }
 
-    const data = await response.json();
-    
-    let assessment: any;
-    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
-    
-    if (toolCall) {
-      // Primary path: tool call response
-      assessment = JSON.parse(toolCall.function.arguments);
-    } else {
-      // Fallback: extract JSON from content text
-      const content = data.choices?.[0]?.message?.content || "";
-      console.log("No tool call, attempting JSON extraction from content");
-      
-      // Try to find JSON in the content
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        try {
-          assessment = JSON.parse(jsonMatch[0]);
-        } catch (parseErr) {
-          console.error("Failed to parse extracted JSON:", parseErr);
-        }
-      }
-      
-      // If still no assessment, retry once without tool_choice constraint
-      if (!assessment) {
-        console.log("Retrying without tool_choice constraint...");
-        const retryResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${LOVABLE_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "google/gemini-3-flash-preview",
-            messages: [
-              { role: "system", content: systemPrompt + "\n\nIMPORTANT: You MUST respond by calling the provided tool function. Do not respond with plain text." },
-              { role: "user", content: `Generate the assessment now for: Skill="${skill}", Topic="${topic}", Difficulty="${difficulty}", Mode="${mode}".` },
-            ],
-            tools: [toolSchema],
-            temperature: 0.7,
-          }),
-        });
-        
-        if (retryResponse.ok) {
-          const retryData = await retryResponse.json();
-          const retryToolCall = retryData.choices?.[0]?.message?.tool_calls?.[0];
-          if (retryToolCall) {
-            assessment = JSON.parse(retryToolCall.function.arguments);
-          } else {
-            // Last resort: parse from retry content
-            const retryContent = retryData.choices?.[0]?.message?.content || "";
-            const retryJsonMatch = retryContent.match(/\{[\s\S]*\}/);
-            if (retryJsonMatch) {
-              assessment = JSON.parse(retryJsonMatch[0]);
-            }
-          }
-        } else {
-          await retryResponse.text(); // consume body
-        }
-      }
-      
-      if (!assessment) {
-        throw new Error("Failed to generate assessment after retries. Please try again.");
+    let data = await response.json();
+    let assessment = parseResponse(data);
+
+    // Attempt 2: retry without tool_choice if failed
+    if (!assessment) {
+      console.log("Attempt 1 failed, retrying without tool_choice...");
+      response = await makeRequest(false);
+      if (response.ok) {
+        data = await response.json();
+        assessment = parseResponse(data);
+      } else {
+        await response.text();
       }
     }
 
-    // Override timer to enforce correct values regardless of AI output
-    if (assessment.timer_minutes !== undefined) {
-      assessment.timer_minutes = timerMinutes;
+    if (!assessment) {
+      throw new Error("Failed to generate assessment. Please try again.");
     }
-    if (assessment.pass_mark !== undefined && !isProgramming && !isHTMLCSS) {
-      assessment.pass_mark = isExam ? 24 : 6;
-    }
-    if (assessment.total_questions !== undefined && !isProgramming && !isHTMLCSS) {
-      assessment.total_questions = isExam ? 40 : 10;
+
+    // Enforce correct values
+    assessment.timer_minutes = timerMinutes;
+    if (!isProgramming && !isHTMLCSS) {
+      assessment.pass_mark = mcqPassMark;
+      assessment.total_questions = mcqCount;
     }
 
     return new Response(JSON.stringify({
       type: isHTMLCSS ? "htmlcss" : isProgramming ? "programming" : "mcq",
-      mode,
-      skill,
-      topic,
-      difficulty,
+      mode, skill, topic, difficulty,
       assessment,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
