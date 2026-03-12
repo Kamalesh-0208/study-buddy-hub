@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -11,10 +11,33 @@ import GenerationCountdown from "@/components/GenerationCountdown";
 import { Button } from "@/components/ui/button";
 import { ClipboardCheck, History, Plus } from "lucide-react";
 
+// Estimated generation time per category (seconds)
+const ESTIMATED_TIME: Record<string, number> = {
+  theory: 120,
+  programming: 90,
+  htmlcss: 90,
+};
+
+const TYPE_LABEL: Record<string, string> = {
+  theory: "Questions",
+  programming: "Coding Problems",
+  htmlcss: "Web Challenge",
+};
+
+function resolveCategory(config: any): string {
+  let cat = config.skillCategory;
+  if (cat === "database" || cat === "aptitude") cat = "theory";
+  if (cat === "other") cat = config.questionType === "coding" ? "programming" : "theory";
+  if (cat === "htmlcss" && config.skill !== "HTML/CSS") cat = "theory";
+  return cat;
+}
+
 const AssessmentPage = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [generationDone, setGenerationDone] = useState(false);
+  const [activeCategory, setActiveCategory] = useState("theory");
   const [assessmentData, setAssessmentData] = useState<any>(null);
   const [history, setHistory] = useState<any[]>([]);
   const [showHistory, setShowHistory] = useState(false);
@@ -34,21 +57,12 @@ const AssessmentPage = () => {
   };
 
   const handleStart = async (config: any) => {
+    const edgeCategory = resolveCategory(config);
+    setActiveCategory(edgeCategory);
+    setGenerationDone(false);
     setLoading(true);
-    try {
-      let edgeCategory = config.skillCategory;
-      if (config.skillCategory === "database" || config.skillCategory === "aptitude") {
-        edgeCategory = "theory";
-      }
-      if (config.skillCategory === "other") {
-        edgeCategory = config.questionType === "coding" ? "programming" : "theory";
-      }
-      if (config.skillCategory === "htmlcss" && config.skill === "HTML/CSS") {
-        edgeCategory = "htmlcss";
-      } else if (config.skillCategory === "htmlcss") {
-        edgeCategory = "theory";
-      }
 
+    try {
       const { data, error } = await supabase.functions.invoke("generate-assessment", {
         body: {
           skillCategory: edgeCategory,
@@ -62,11 +76,22 @@ const AssessmentPage = () => {
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 
+      // Signal the countdown to stop immediately
+      setGenerationDone(true);
+
+      // Brief pause so the user sees "Ready!" before the view switches
+      await new Promise((r) => setTimeout(r, 700));
+
       setAssessmentData({ ...data, config });
     } catch (e: any) {
-      toast({ title: "Error", description: e.message || "Failed to generate assessment", variant: "destructive" });
+      toast({
+        title: "Error",
+        description: e.message || "Failed to generate assessment",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
+      setGenerationDone(false);
     }
   };
 
@@ -109,7 +134,7 @@ const AssessmentPage = () => {
 
   const handleDeleteHistory = async (id: string) => {
     await supabase.from("assessment_history").delete().eq("id", id);
-    setHistory(prev => prev.filter(h => h.id !== id));
+    setHistory((prev) => prev.filter((h) => h.id !== id));
   };
 
   return (
@@ -125,16 +150,24 @@ const AssessmentPage = () => {
           </div>
         </div>
         <div className="flex gap-2">
-          {!assessmentData && (
+          {!assessmentData && !loading && (
             <Button variant="outline" size="sm" onClick={() => setShowHistory(!showHistory)}>
-              {showHistory ? <><Plus className="h-4 w-4 mr-1" /> New Test</> : <><History className="h-4 w-4 mr-1" /> History</>}
+              {showHistory ? (
+                <><Plus className="h-4 w-4 mr-1" /> New Test</>
+              ) : (
+                <><History className="h-4 w-4 mr-1" /> History</>
+              )}
             </Button>
           )}
         </div>
       </div>
 
       {loading ? (
-        <GenerationCountdown />
+        <GenerationCountdown
+          estimatedSeconds={ESTIMATED_TIME[activeCategory] ?? 120}
+          isComplete={generationDone}
+          label={TYPE_LABEL[activeCategory] ?? "Questions"}
+        />
       ) : !assessmentData && showHistory ? (
         <AssessmentHistory
           history={history}
