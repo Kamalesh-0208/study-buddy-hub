@@ -418,6 +418,48 @@ export type Database = {
         }
         Relationships: []
       }
+      question_bank: {
+        Row: {
+          correct_answer: string
+          created_at: string
+          difficulty: string
+          explanation: string | null
+          id: string
+          options: Json | null
+          question_text: string
+          question_type: string
+          skill: string
+          topic: string
+          validated: boolean
+        }
+        Insert: {
+          correct_answer: string
+          created_at?: string
+          difficulty?: string
+          explanation?: string | null
+          id?: string
+          options?: Json | null
+          question_text: string
+          question_type?: string
+          skill: string
+          topic: string
+          validated?: boolean
+        }
+        Update: {
+          correct_answer?: string
+          created_at?: string
+          difficulty?: string
+          explanation?: string | null
+          id?: string
+          options?: Json | null
+          question_text?: string
+          question_type?: string
+          skill?: string
+          topic?: string
+          validated?: boolean
+        }
+        Relationships: []
+      }
       readiness_scores: {
         Row: {
           calculated_at: string

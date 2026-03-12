@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -23,12 +24,70 @@ function extractJsonFromResponse(response: string): unknown {
   try {
     return JSON.parse(cleaned);
   } catch {
-    // Fix common issues
     cleaned = cleaned
       .replace(/,\s*}/g, "}")
       .replace(/,\s*]/g, "]")
       .replace(/[\x00-\x1F\x7F]/g, (c) => c === '\n' || c === '\t' ? c : "");
     return JSON.parse(cleaned);
+  }
+}
+
+function getSupabaseAdmin() {
+  const url = Deno.env.get("SUPABASE_URL")!;
+  const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  return createClient(url, key);
+}
+
+// Try to fetch cached MCQ questions from question_bank
+async function fetchCachedQuestions(skill: string, topic: string, difficulty: string, count: number) {
+  try {
+    const sb = getSupabaseAdmin();
+    let query = sb.from("question_bank").select("*")
+      .eq("skill", skill)
+      .eq("topic", topic)
+      .eq("question_type", "mcq");
+
+    if (difficulty !== "mixed") {
+      query = query.eq("difficulty", difficulty);
+    }
+
+    const { data, error } = await query.limit(count * 2); // fetch extra for randomization
+    if (error || !data || data.length < count) return null;
+
+    // Shuffle and pick
+    const shuffled = data.sort(() => Math.random() - 0.5).slice(0, count);
+    return shuffled.map((q: any, i: number) => ({
+      question_number: i + 1,
+      question_text: q.question_text,
+      options: q.options,
+      correct_answer: q.correct_answer,
+      explanation: q.explanation || "",
+      difficulty_label: q.difficulty,
+    }));
+  } catch (e) {
+    console.error("Cache fetch error:", e);
+    return null;
+  }
+}
+
+// Store generated MCQ questions in question_bank (fire-and-forget)
+async function storeQuestionsInBackground(skill: string, topic: string, difficulty: string, questions: any[]) {
+  try {
+    const sb = getSupabaseAdmin();
+    const rows = questions.map((q: any) => ({
+      skill,
+      topic,
+      difficulty: q.difficulty_label || difficulty,
+      question_type: "mcq",
+      question_text: q.question_text,
+      options: q.options,
+      correct_answer: q.correct_answer,
+      explanation: q.explanation || "",
+      validated: false,
+    }));
+    await sb.from("question_bank").insert(rows);
+  } catch (e) {
+    console.error("Background store error:", e);
   }
 }
 
@@ -44,18 +103,30 @@ serve(async (req) => {
     const isHTMLCSS = skillCategory === "htmlcss";
     const isExam = mode === "exam";
 
-    // Timer rules
-    const getTimer = () => {
-      if (isHTMLCSS) return 90;
-      if (isProgramming) return 60;
-      return 60; // 60 min for both exam and practice MCQ
-    };
-    const timerMinutes = getTimer();
-
-    // Question counts: 40 for both exam and practice MCQ
+    const timerMinutes = isHTMLCSS ? 90 : 60;
     const mcqCount = 40;
-    const mcqPassMark = isExam ? 24 : 24;
+    const mcqPassMark = 24;
 
+    // --- MCQ: Try cached questions first ---
+    if (!isProgramming && !isHTMLCSS) {
+      const cached = await fetchCachedQuestions(skill, topic, difficulty, mcqCount);
+      if (cached) {
+        console.log(`Returning ${cached.length} cached questions for ${skill}/${topic}`);
+        return new Response(JSON.stringify({
+          type: "mcq", mode, skill, topic, difficulty,
+          assessment: {
+            questions: cached,
+            timer_minutes: timerMinutes,
+            total_questions: mcqCount,
+            pass_mark: mcqPassMark,
+            scoring_rules: "+1 correct, -0.25 wrong",
+            instructions: `${isExam ? "Exam" : "Practice"} mode. ${mcqCount} questions, ${timerMinutes} minutes.`,
+          },
+        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+    }
+
+    // --- Build AI prompt ---
     let systemPrompt: string;
     let toolSchema: any;
     let toolName: string;
@@ -63,7 +134,6 @@ serve(async (req) => {
     if (isHTMLCSS) {
       const webpageTopic = topic.split("|")[0] || "Landing Page";
       const extraReqs = topic.split("|")[1] || "";
-
       const requirementPool = [
         "Use Flexbox Layout", "Use CSS Grid Layout", "Use hover effects on buttons/links",
         "Use responsive design with media queries", "Use custom Google Fonts",
@@ -92,30 +162,18 @@ Set timer_minutes to ${timerMinutes}.`;
               challenge: {
                 type: "object",
                 properties: {
-                  title: { type: "string" },
-                  design_description: { type: "string" },
+                  title: { type: "string" }, design_description: { type: "string" },
                   design_spec: {
                     type: "object",
                     properties: {
-                      layout_description: { type: "string" },
-                      color_scheme: { type: "array", items: { type: "string" } },
-                      typography: { type: "string" },
-                      components: { type: "array", items: { type: "string" } },
-                      spacing_notes: { type: "string" },
-                      responsive_notes: { type: "string" },
+                      layout_description: { type: "string" }, color_scheme: { type: "array", items: { type: "string" } },
+                      typography: { type: "string" }, components: { type: "array", items: { type: "string" } },
+                      spacing_notes: { type: "string" }, responsive_notes: { type: "string" },
                     },
                     required: ["layout_description", "color_scheme", "typography", "components", "spacing_notes", "responsive_notes"],
                   },
-                  requirements: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: { rule: { type: "string" }, description: { type: "string" } },
-                      required: ["rule", "description"],
-                    },
-                  },
-                  reference_html: { type: "string" },
-                  reference_css: { type: "string" },
+                  requirements: { type: "array", items: { type: "object", properties: { rule: { type: "string" }, description: { type: "string" } }, required: ["rule", "description"] } },
+                  reference_html: { type: "string" }, reference_css: { type: "string" },
                   layout_explanation: { type: "string" },
                   hints: { type: "array", items: { type: "string" } },
                   evaluation_criteria: { type: "array", items: { type: "string" } },
@@ -123,8 +181,7 @@ Set timer_minutes to ${timerMinutes}.`;
                 },
                 required: ["title", "design_description", "design_spec", "requirements", "reference_html", "reference_css", "layout_explanation", "hints", "evaluation_criteria", "difficulty_label"],
               },
-              timer_minutes: { type: "number" },
-              instructions: { type: "string" },
+              timer_minutes: { type: "number" }, instructions: { type: "string" },
             },
             required: ["challenge", "timer_minutes", "instructions"],
           },
@@ -150,36 +207,28 @@ Set timer_minutes to ${timerMinutes}.`;
                 items: {
                   type: "object",
                   properties: {
-                    title: { type: "string" },
-                    description: { type: "string" },
-                    input_format: { type: "string" },
-                    output_format: { type: "string" },
+                    title: { type: "string" }, description: { type: "string" },
+                    input_format: { type: "string" }, output_format: { type: "string" },
                     constraints: { type: "string" },
                     sample_tests: { type: "array", items: { type: "object", properties: { input: { type: "string" }, expected_output: { type: "string" } }, required: ["input", "expected_output"] } },
                     hidden_tests: { type: "array", items: { type: "object", properties: { input: { type: "string" }, expected_output: { type: "string" } }, required: ["input", "expected_output"] } },
-                    solution_code: { type: "string" },
-                    solution_explanation: { type: "string" },
+                    solution_code: { type: "string" }, solution_explanation: { type: "string" },
                     common_mistakes: { type: "array", items: { type: "string" } },
                     difficulty_label: { type: "string" },
                   },
                   required: ["title", "description", "input_format", "output_format", "constraints", "sample_tests", "hidden_tests", "solution_code", "solution_explanation", "common_mistakes", "difficulty_label"],
                 },
               },
-              timer_minutes: { type: "number" },
-              instructions: { type: "string" },
+              timer_minutes: { type: "number" }, instructions: { type: "string" },
             },
             required: ["problems", "timer_minutes", "instructions"],
           },
         },
       };
     } else {
-      // MCQ - always 40 questions
-      let difficultyInstruction = "";
-      if (difficulty === "mixed") {
-        difficultyInstruction = "Generate exactly 15 Easy, 15 Medium, and 10 Hard questions.";
-      } else {
-        difficultyInstruction = `All questions should be ${difficulty} difficulty.`;
-      }
+      let difficultyInstruction = difficulty === "mixed"
+        ? "Generate exactly 15 Easy, 15 Medium, and 10 Hard questions."
+        : `All questions should be ${difficulty} difficulty.`;
 
       systemPrompt = `You are an expert MCQ generator. Generate exactly ${mcqCount} multiple choice questions for "${skill}" on "${topic}".
 ${difficultyInstruction}
@@ -201,25 +250,15 @@ Set timer_minutes=${timerMinutes}, total_questions=${mcqCount}, pass_mark=${mcqP
                 items: {
                   type: "object",
                   properties: {
-                    question_number: { type: "number" },
-                    question_text: { type: "string" },
-                    options: {
-                      type: "object",
-                      properties: { A: { type: "string" }, B: { type: "string" }, C: { type: "string" }, D: { type: "string" } },
-                      required: ["A", "B", "C", "D"],
-                    },
-                    correct_answer: { type: "string" },
-                    explanation: { type: "string" },
-                    difficulty_label: { type: "string" },
+                    question_number: { type: "number" }, question_text: { type: "string" },
+                    options: { type: "object", properties: { A: { type: "string" }, B: { type: "string" }, C: { type: "string" }, D: { type: "string" } }, required: ["A", "B", "C", "D"] },
+                    correct_answer: { type: "string" }, explanation: { type: "string" }, difficulty_label: { type: "string" },
                   },
                   required: ["question_number", "question_text", "options", "correct_answer", "explanation", "difficulty_label"],
                 },
               },
-              timer_minutes: { type: "number" },
-              total_questions: { type: "number" },
-              pass_mark: { type: "number" },
-              scoring_rules: { type: "string" },
-              instructions: { type: "string" },
+              timer_minutes: { type: "number" }, total_questions: { type: "number" },
+              pass_mark: { type: "number" }, scoring_rules: { type: "string" }, instructions: { type: "string" },
             },
             required: ["questions", "timer_minutes", "total_questions", "pass_mark", "scoring_rules", "instructions"],
           },
@@ -227,7 +266,7 @@ Set timer_minutes=${timerMinutes}, total_questions=${mcqCount}, pass_mark=${mcqP
       };
     }
 
-    // Call AI with tool calling
+    // --- Call AI ---
     const makeRequest = async (useToolChoice: boolean) => {
       const body: any = {
         model: "google/gemini-2.5-flash",
@@ -238,94 +277,62 @@ Set timer_minutes=${timerMinutes}, total_questions=${mcqCount}, pass_mark=${mcqP
         tools: [toolSchema],
         temperature: 0.7,
       };
-      if (useToolChoice) {
-        body.tool_choice = { type: "function", function: { name: toolName } };
-      }
+      if (useToolChoice) body.tool_choice = { type: "function", function: { name: toolName } };
       return fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
+        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
     };
 
     const parseResponse = (data: any): any => {
-      // Try tool call first
       const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
       if (toolCall?.function?.arguments) {
-        try {
-          return JSON.parse(toolCall.function.arguments);
-        } catch {
-          // Try fixing the JSON
-          return extractJsonFromResponse(toolCall.function.arguments);
-        }
+        try { return JSON.parse(toolCall.function.arguments); } catch { return extractJsonFromResponse(toolCall.function.arguments); }
       }
-
-      // Fallback: extract from content
       const content = data.choices?.[0]?.message?.content;
-      if (content) {
-        console.log("No tool call found, extracting JSON from content");
-        return extractJsonFromResponse(content);
-      }
-
+      if (content) return extractJsonFromResponse(content);
       return null;
     };
 
-    // Attempt 1: with tool_choice
     let response = await makeRequest(true);
 
     if (!response.ok) {
       const status = response.status;
       const errText = await response.text();
       console.error("AI gateway error:", status, errText);
-      if (status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limit exceeded. Please try again in a moment." }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (status === 402) {
-        return new Response(JSON.stringify({ error: "AI credits exhausted. Please add credits." }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+      if (status === 429) return new Response(JSON.stringify({ error: "Rate limit exceeded. Please try again in a moment." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      if (status === 402) return new Response(JSON.stringify({ error: "AI credits exhausted." }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       throw new Error(`AI gateway error: ${status}`);
     }
 
     let data = await response.json();
     let assessment = parseResponse(data);
 
-    // Attempt 2: retry without tool_choice if failed
     if (!assessment) {
       console.log("Attempt 1 failed, retrying without tool_choice...");
       response = await makeRequest(false);
-      if (response.ok) {
-        data = await response.json();
-        assessment = parseResponse(data);
-      } else {
-        await response.text();
-      }
+      if (response.ok) { data = await response.json(); assessment = parseResponse(data); }
     }
 
-    if (!assessment) {
-      throw new Error("Failed to generate assessment. Please try again.");
-    }
+    if (!assessment) throw new Error("Failed to generate assessment. Please try again.");
 
-    // Enforce correct values
+    // Enforce values
     assessment.timer_minutes = timerMinutes;
     if (!isProgramming && !isHTMLCSS) {
       assessment.pass_mark = mcqPassMark;
       assessment.total_questions = mcqCount;
+
+      // Store generated MCQ questions in background
+      if (assessment.questions?.length) {
+        storeQuestionsInBackground(skill, topic, difficulty, assessment.questions);
+      }
     }
 
     return new Response(JSON.stringify({
       type: isHTMLCSS ? "htmlcss" : isProgramming ? "programming" : "mcq",
-      mode, skill, topic, difficulty,
-      assessment,
-    }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+      mode, skill, topic, difficulty, assessment,
+    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     console.error("Assessment error:", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
