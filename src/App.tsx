@@ -18,6 +18,7 @@ import ResetPasswordPage from "./pages/ResetPasswordPage";
 import PlannerPage from "./pages/PlannerPage";
 import AssessmentPage from "./pages/AssessmentPage";
 import FeatureBuilderPage from "./pages/FeatureBuilderPage";
+import PlaygroundPage from "./pages/PlaygroundPage";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -66,6 +67,7 @@ const App = () => (
               <Route path="/planner" element={<PlannerPage />} />
               <Route path="/assessment" element={<AssessmentPage />} />
               <Route path="/feature-builder" element={<FeatureBuilderPage />} />
+              <Route path="/playground" element={<PlaygroundPage />} />
               <Route path="/settings" element={<SettingsPage />} />
             </Route>
             <Route path="*" element={<NotFound />} />

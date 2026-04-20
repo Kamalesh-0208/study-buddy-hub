@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Clock, CheckCircle, XCircle, Code, Send, RotateCcw, Eye, EyeOff, Lock, Home, BookOpen } from "lucide-react";
 import { motion } from "framer-motion";
+import CodeRunner, { CodeLanguage, RunSummary } from "@/components/CodeRunner";
 
 interface TestCase { input: string; expected_output: string; }
 
@@ -40,6 +41,8 @@ const ProgrammingAssessment = ({ assessment, mode, skill, onReset, onRetry, onSa
   const { problems, timer_minutes } = assessment;
   const [currentProblem, setCurrentProblem] = useState(0);
   const [code, setCode] = useState<Record<number, string>>({});
+  const [language, setLanguage] = useState<CodeLanguage>("python");
+  const [hiddenResults, setHiddenResults] = useState<Record<number, RunSummary>>({});
   const [submitted, setSubmitted] = useState(false);
   const [locked, setLocked] = useState(false);
   const [showSolution, setShowSolution] = useState<Record<number, boolean>>({});
@@ -62,16 +65,34 @@ const ProgrammingAssessment = ({ assessment, mode, skill, onReset, onRetry, onSa
   useEffect(() => {
     if (submitted && !resultSaved && onSaveResult) {
       const timeTaken = Math.round((Date.now() - startTimeRef.current) / 1000);
+      // Score by hidden test pass-rate when available, fallback to "submitted any code"
+      const evaluated = problems.map((_, i) => hiddenResults[i]);
+      const hasAnyEval = evaluated.some(Boolean);
+      let correct = 0;
+      let totalTestCases = 0;
+      let passedTestCases = 0;
+      problems.forEach((p, i) => {
+        const r = hiddenResults[i];
+        if (r) {
+          totalTestCases += r.total;
+          passedTestCases += r.passed;
+          if (r.all_passed) correct++;
+        }
+      });
       const submitted_count = problems.filter((_, i) => code[i]?.trim()).length;
+      const finalCorrect = hasAnyEval ? correct : submitted_count;
+      const scorePct = hasAnyEval
+        ? (totalTestCases > 0 ? (passedTestCases / totalTestCases) * 100 : 0)
+        : (submitted_count / problems.length) * 100;
       onSaveResult({
         totalQuestions: problems.length,
         attempted: submitted_count,
-        correct: submitted_count, // Approximation
-        wrong: 0,
+        correct: finalCorrect,
+        wrong: submitted_count - finalCorrect,
         unanswered: problems.length - submitted_count,
-        scorePercentage: (submitted_count / problems.length) * 100,
-        finalScore: submitted_count,
-        passed: submitted_count > 0,
+        scorePercentage: scorePct,
+        finalScore: finalCorrect,
+        passed: scorePct >= 50,
         timeTakenSeconds: timeTaken,
       });
       setResultSaved(true);
@@ -237,15 +258,35 @@ const ProgrammingAssessment = ({ assessment, mode, skill, onReset, onRetry, onSa
 
         <Card className="flex flex-col">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2"><Code className="h-4 w-4" /> Your Solution ({skill})</CardTitle>
+            <CardTitle className="text-sm flex items-center gap-2"><Code className="h-4 w-4" /> Your Solution</CardTitle>
+            <CardDescription className="text-xs">Sandboxed: 2s CPU · 256 MB · no network/FS</CardDescription>
           </CardHeader>
           <CardContent className="flex-1 flex flex-col gap-3">
             <Textarea
               value={code[currentProblem] || ""}
               onChange={e => !locked && setCode(prev => ({ ...prev, [currentProblem]: e.target.value }))}
-              placeholder={`Write your ${skill} code here...`}
-              className={`flex-1 min-h-[350px] font-mono text-xs resize-none ${locked ? "opacity-70 cursor-not-allowed" : ""}`}
+              placeholder={`Write your code here...`}
+              className={`flex-1 min-h-[280px] font-mono text-xs resize-none ${locked ? "opacity-70 cursor-not-allowed" : ""}`}
               disabled={locked}
+            />
+            <CodeRunner
+              language={language}
+              onLanguageChange={setLanguage}
+              showLanguageSelector
+              sourceCode={code[currentProblem] || ""}
+              testCases={p.sample_tests}
+              buttonLabel="Run Sample Tests"
+              variant="run"
+            />
+            <CodeRunner
+              language={language}
+              sourceCode={code[currentProblem] || ""}
+              testCases={p.hidden_tests}
+              buttonLabel="Submit (Hidden Tests)"
+              variant="submit"
+              onComplete={(summary) =>
+                setHiddenResults(prev => ({ ...prev, [currentProblem]: summary }))
+              }
             />
           </CardContent>
         </Card>
