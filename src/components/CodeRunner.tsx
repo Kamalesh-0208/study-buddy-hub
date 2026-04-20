@@ -141,11 +141,11 @@ const CodeRunner = ({
       {results.length > 0 && (
         <div className="space-y-2">
           {results.map((r) => (
-            <Card key={r.test_case_index} className={r.passed ? "border-green-500/30" : "border-destructive/30"}>
+            <Card key={r.test_case_index} className={r.passed ? "border-primary/30" : "border-destructive/30"}>
               <CardContent className="p-3 space-y-2 text-xs">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 font-semibold">
-                    {r.passed ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <XCircle className="h-4 w-4 text-destructive" />}
+                    {r.passed ? <CheckCircle2 className="h-4 w-4 text-primary" /> : <XCircle className="h-4 w-4 text-destructive" />}
                     Test {r.test_case_index + 1} — {r.status}
                   </div>
                   <div className="flex gap-2 text-muted-foreground">
