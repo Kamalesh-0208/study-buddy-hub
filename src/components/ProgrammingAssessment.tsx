@@ -258,15 +258,35 @@ const ProgrammingAssessment = ({ assessment, mode, skill, onReset, onRetry, onSa
 
         <Card className="flex flex-col">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2"><Code className="h-4 w-4" /> Your Solution ({skill})</CardTitle>
+            <CardTitle className="text-sm flex items-center gap-2"><Code className="h-4 w-4" /> Your Solution</CardTitle>
+            <CardDescription className="text-xs">Sandboxed: 2s CPU · 256 MB · no network/FS</CardDescription>
           </CardHeader>
           <CardContent className="flex-1 flex flex-col gap-3">
             <Textarea
               value={code[currentProblem] || ""}
               onChange={e => !locked && setCode(prev => ({ ...prev, [currentProblem]: e.target.value }))}
-              placeholder={`Write your ${skill} code here...`}
-              className={`flex-1 min-h-[350px] font-mono text-xs resize-none ${locked ? "opacity-70 cursor-not-allowed" : ""}`}
+              placeholder={`Write your code here...`}
+              className={`flex-1 min-h-[280px] font-mono text-xs resize-none ${locked ? "opacity-70 cursor-not-allowed" : ""}`}
               disabled={locked}
+            />
+            <CodeRunner
+              language={language}
+              onLanguageChange={setLanguage}
+              showLanguageSelector
+              sourceCode={code[currentProblem] || ""}
+              testCases={p.sample_tests}
+              buttonLabel="Run Sample Tests"
+              variant="run"
+            />
+            <CodeRunner
+              language={language}
+              sourceCode={code[currentProblem] || ""}
+              testCases={p.hidden_tests}
+              buttonLabel="Submit (Hidden Tests)"
+              variant="submit"
+              onComplete={(summary) =>
+                setHiddenResults(prev => ({ ...prev, [currentProblem]: summary }))
+              }
             />
           </CardContent>
         </Card>
