@@ -43,7 +43,7 @@ const AppSidebar = () => {
           <Zap className="h-5 w-5 text-primary-foreground" />
         </motion.div>
         {!collapsed && (
-          <span className="text-lg font-extrabold gradient-text tracking-tight whitespace-nowrap">StudyFlow Pro Max</span>
+          <span className="text-lg font-extrabold gradient-text tracking-tight whitespace-nowrap">SkillMav</span>
         )}
       </div>
 
