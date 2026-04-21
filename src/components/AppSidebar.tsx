@@ -39,9 +39,10 @@ const AppSidebar = () => {
     >
       {/* Logo */}
       <div className="flex items-center gap-3 px-4 py-5 border-b border-border/30">
-        <motion.div whileHover={{ rotate: 15 }} className="gradient-bg rounded-xl p-2 shadow-glow shrink-0">
-          <Zap className="h-5 w-5 text-primary-foreground" />
-        </motion.div>
+       <img 
+       src="/skillmav.png" 
+       className="h-8 w-8 rounded-xl object-cover"
+       />
         {!collapsed && (
           <span className="text-lg font-extrabold gradient-text tracking-tight whitespace-nowrap">SkillMav</span>
         )}
