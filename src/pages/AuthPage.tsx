@@ -5,9 +5,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Zap, Mail, Lock, User, ArrowRight, Loader2 } from "lucide-react";
+import { Mail, Lock, User, ArrowRight, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
+import skillmavLogo from "@/assets/skillmav-logo.png";
 
 const AuthPage = () => {
   const [mode, setMode] = useState<"login" | "signup" | "forgot">("login");
@@ -49,10 +50,12 @@ const AuthPage = () => {
     <div className="min-h-screen flex items-center justify-center px-4" style={{ background: "var(--gradient-bg)" }}>
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md">
         <div className="flex items-center justify-center gap-3 mb-8">
-          <div className="gradient-bg rounded-2xl p-3 shadow-glow">
-            <Zap className="h-7 w-7 text-primary-foreground" />
-          </div>
-          <span className="text-3xl font-extrabold gradient-text tracking-tight">StudyFlow Pro Max</span>
+          <img
+            src={skillmavLogo}
+            alt="SkillMav logo"
+            className="h-12 w-12 rounded-xl object-cover shadow-glow"
+          />
+          <span className="text-4xl font-extrabold gradient-text tracking-tight">SkillMav</span>
         </div>
 
         <div className="glass-strong rounded-2xl p-8">
