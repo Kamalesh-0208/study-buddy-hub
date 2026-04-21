@@ -40,7 +40,7 @@ const AppSidebar = () => {
       {/* Logo */}
       <div className="flex items-center gap-3 px-4 py-5 border-b border-border/30">
        <img 
-       src="/SkillMav.png" 
+       src="/SkillMav (2).png" 
        className="h-8 w-8 rounded-xl object-cover"
        />
         {!collapsed && (
