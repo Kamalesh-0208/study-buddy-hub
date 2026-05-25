@@ -20,6 +20,7 @@ const ReferenceImage = ({ doc, title }: Props) => {
     const render = async () => {
       setLoading(true);
       const iframe = document.createElement("iframe");
+      iframe.setAttribute("sandbox", "allow-same-origin");
       iframe.style.position = "fixed";
       iframe.style.left = "-99999px";
       iframe.style.top = "0";
