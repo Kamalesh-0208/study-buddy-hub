@@ -1,0 +1,1 @@
+ALTER TABLE public.study_sessions ADD CONSTRAINT study_sessions_duration_reasonable CHECK (duration_seconds >= 0 AND duration_seconds <= 14400);
