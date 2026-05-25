@@ -91,6 +91,7 @@ export function scoreCSS(studentCss: string, referenceCss: string): number {
 
 async function renderToCanvas(html: string, width = 800, height = 600): Promise<HTMLCanvasElement> {
   const iframe = document.createElement("iframe");
+  iframe.setAttribute("sandbox", "allow-same-origin");
   iframe.style.position = "fixed";
   iframe.style.left = "-99999px";
   iframe.style.top = "0";
