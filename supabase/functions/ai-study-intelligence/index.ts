@@ -24,6 +24,18 @@ serve(async (req) => {
 
     const { action } = await req.json();
 
+    // Sanitize user-stored strings before embedding them in AI prompts (prompt-injection defense).
+    const sanitize = (v: unknown, maxLen = 100): string => {
+      if (typeof v !== "string") return "";
+      let s = v.replace(/[\r\n\t]+/g, " ").trim();
+      s = s.replace(/```/g, "").replace(/<\|.*?\|>/g, "");
+      s = s.replace(/\b(ignore|disregard|override)\s+(all|previous|prior)\s+(instructions|prompts?|rules?)\b/gi, "[filtered]");
+      s = s.replace(/\b(system|assistant|user)\s*:\s*/gi, "");
+      if (s.length > maxLen) s = s.slice(0, maxLen);
+      return s;
+    };
+
+
     // Fetch all user data in parallel
     const [subjectsRes, tasksRes, sessionsRes, goalsRes, focusRes, examsRes] = await Promise.all([
       supabase.from("subjects").select("*").eq("user_id", user.id),
@@ -135,7 +147,7 @@ serve(async (req) => {
         const avgFocus = subSessions.length > 0 ? Math.round(subSessions.reduce((sum, ss) => sum + (ss.focus_score ?? 80), 0) / subSessions.length) : 0;
         const lastStudied = s.last_studied_at ? new Date(s.last_studied_at).toLocaleDateString() : "never";
         const exam = exams.find(e => e.subject_id === s.id);
-        return `- ${s.name}: ${totalHours.toFixed(1)}h studied, avg focus ${avgFocus}, last studied ${lastStudied}${exam ? `, exam on ${exam.exam_date}` : ""}`;
+        return `- ${sanitize(s.name, 60)}: ${totalHours.toFixed(1)}h studied, avg focus ${avgFocus}, last studied ${lastStudied}${exam ? `, exam on ${exam.exam_date}` : ""}`;
       }).join("\n");
 
       const avgSessionLen = sessions.length > 0 ? Math.round(sessions.reduce((s, ss) => s + ss.duration_seconds, 0) / sessions.length / 60) : 25;
@@ -276,7 +288,7 @@ ${exams.map(e => `- ${subjects.find(s => s.id === e.subject_id)?.name ?? "Unknow
         const incompleteTasks = subTasks.filter(t => !t.completed);
         const lowFocusSessions = subSessions.filter(ss => (ss.focus_score ?? 80) < 60);
         const totalHours = Number(s.total_study_hours) || 0;
-        return `- ${s.name}: ${totalHours.toFixed(1)}h total, ${subSessions.length} sessions, ${lowFocusSessions.length} low-focus sessions, ${incompleteTasks.length} incomplete tasks (${incompleteTasks.map(t => t.title).join(", ")})`;
+        return `- ${sanitize(s.name, 60)}: ${totalHours.toFixed(1)}h total, ${subSessions.length} sessions, ${lowFocusSessions.length} low-focus sessions, ${incompleteTasks.length} incomplete tasks (${incompleteTasks.map(t => sanitize(t.title, 80)).join(", ")})`;
       }).join("\n");
 
       const prompt = `Analyze this student's study data and detect weak topics within each subject.
@@ -285,7 +297,7 @@ SUBJECTS & PERFORMANCE:
 ${subjectContext || "No subjects"}
 
 INCOMPLETE TASKS:
-${tasks.filter(t => !t.completed).map(t => `- ${t.title} (${subjects.find(s => s.id === t.subject_id)?.name ?? "general"}, priority: ${t.priority})`).join("\n") || "None"}
+${tasks.filter(t => !t.completed).map(t => `- ${sanitize(t.title, 80)} (${sanitize(subjects.find(s => s.id === t.subject_id)?.name ?? "general", 60)}, priority: ${sanitize(t.priority, 20)})`).join("\n") || "None"}
 
 Based on low study time, incomplete tasks, and low focus scores, identify specific weak topics within each subject.`;
 
