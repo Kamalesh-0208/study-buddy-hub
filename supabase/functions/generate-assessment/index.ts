@@ -120,6 +120,8 @@ async function storeValidatedQuestions(skill: string, topic: string, difficulty:
         correct_answer: q.correct_answer,
         explanation: q.explanation || "",
         validated: true,
+        verification_status: "Verified",
+        verification_metadata: q._verification ?? null,
       });
       // Also add to existingTexts so we dedup within the batch
       existingTexts.push(q.question_text);
