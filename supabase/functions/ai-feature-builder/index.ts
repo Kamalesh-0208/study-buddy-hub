@@ -22,10 +22,17 @@ serve(async (req) => {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) throw new Error("Unauthorized");
 
-    const { request: featureRequest } = await req.json();
-    if (!featureRequest || typeof featureRequest !== "string") {
+    const { request: rawFeatureRequest } = await req.json();
+    if (!rawFeatureRequest || typeof rawFeatureRequest !== "string") {
       throw new Error("Feature request text is required");
     }
+    // Sanitize against prompt injection
+    let featureRequest = rawFeatureRequest.replace(/[\r\n\t]+/g, " ").trim();
+    featureRequest = featureRequest.replace(/```/g, "").replace(/<\|.*?\|>/g, "");
+    featureRequest = featureRequest.replace(/\b(ignore|disregard|override)\s+(all|previous|prior)\s+(instructions|prompts?|rules?)\b/gi, "[filtered]");
+    featureRequest = featureRequest.replace(/\b(system|assistant|user)\s*:\s*/gi, "");
+    if (featureRequest.length > 500) featureRequest = featureRequest.slice(0, 500);
+    if (!featureRequest) throw new Error("Feature request text is required");
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
