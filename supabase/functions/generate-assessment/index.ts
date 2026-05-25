@@ -468,11 +468,53 @@ async function runMCQVerificationPipeline(
 
 // --- Main Handler ---
 
+// Sanitize user-supplied prompt inputs to mitigate prompt injection.
+function sanitizePromptInput(value: unknown, maxLen = 100): string {
+  if (typeof value !== "string") return "";
+  let v = value.replace(/[\r\n\t]+/g, " ").trim();
+  // Strip common prompt-injection markers and control-like sequences
+  v = v.replace(/```/g, "").replace(/<\|.*?\|>/g, "");
+  v = v.replace(/\b(ignore|disregard|override)\s+(all|previous|prior)\s+(instructions|prompts?|rules?)\b/gi, "[filtered]");
+  v = v.replace(/\b(system|assistant|user)\s*:\s*/gi, "");
+  if (v.length > maxLen) v = v.slice(0, maxLen);
+  return v;
+}
+
+const ALLOWED_MODES = new Set(["practice", "exam"]);
+const ALLOWED_DIFFICULTY = new Set(["easy", "medium", "hard", "mixed"]);
+const ALLOWED_CATEGORIES = new Set(["mcq", "programming", "htmlcss"]);
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { skillCategory, skill, topic, mode, difficulty } = await req.json();
+    // --- AuthN: require valid JWT ---
+    const authHeader = req.headers.get("Authorization") ?? "";
+    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+    if (!token) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    const sbAuth = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } },
+    );
+    const { data: claims, error: authError } = await sbAuth.auth.getClaims(token);
+    if (authError || !claims?.claims) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    const raw = await req.json();
+    // --- Input validation & sanitization ---
+    const skillCategory = ALLOWED_CATEGORIES.has(raw?.skillCategory) ? raw.skillCategory : "mcq";
+    const mode = ALLOWED_MODES.has(raw?.mode) ? raw.mode : "practice";
+    const difficulty = ALLOWED_DIFFICULTY.has(raw?.difficulty) ? raw.difficulty : "medium";
+    const skill = sanitizePromptInput(raw?.skill, 80);
+    const topic = sanitizePromptInput(raw?.topic, 120);
+    if (!skill || !topic) {
+      return new Response(JSON.stringify({ error: "skill and topic are required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
@@ -482,6 +524,8 @@ serve(async (req) => {
     const timerMinutes = isHTMLCSS ? 90 : 60;
     const mcqCount = 40;
     const mcqPassMark = 24;
+
+
 
     // --- MCQ: Try cached questions first ---
     if (!isProgramming && !isHTMLCSS) {
