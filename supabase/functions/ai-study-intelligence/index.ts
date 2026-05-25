@@ -24,6 +24,18 @@ serve(async (req) => {
 
     const { action } = await req.json();
 
+    // Sanitize user-stored strings before embedding them in AI prompts (prompt-injection defense).
+    const sanitize = (v: unknown, maxLen = 100): string => {
+      if (typeof v !== "string") return "";
+      let s = v.replace(/[\r\n\t]+/g, " ").trim();
+      s = s.replace(/```/g, "").replace(/<\|.*?\|>/g, "");
+      s = s.replace(/\b(ignore|disregard|override)\s+(all|previous|prior)\s+(instructions|prompts?|rules?)\b/gi, "[filtered]");
+      s = s.replace(/\b(system|assistant|user)\s*:\s*/gi, "");
+      if (s.length > maxLen) s = s.slice(0, maxLen);
+      return s;
+    };
+
+
     // Fetch all user data in parallel
     const [subjectsRes, tasksRes, sessionsRes, goalsRes, focusRes, examsRes] = await Promise.all([
       supabase.from("subjects").select("*").eq("user_id", user.id),
