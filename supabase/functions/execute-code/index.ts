@@ -45,16 +45,34 @@ interface ExecuteRequest {
   memory_limit?: number;   // KB
 }
 
+import { createClient } from "npm:@supabase/supabase-js@2";
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
+    // --- AuthN: require a valid JWT (allow service-role internal calls too) ---
+    const authHeader = req.headers.get("Authorization") ?? "";
+    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    if (!token) return json({ error: "Unauthorized" }, 401);
+    if (token !== serviceKey) {
+      const sb = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_ANON_KEY")!,
+        { global: { headers: { Authorization: authHeader } } },
+      );
+      const { data, error } = await sb.auth.getClaims(token);
+      if (error || !data?.claims) return json({ error: "Unauthorized" }, 401);
+    }
+
     const apiKey = Deno.env.get("JUDGE0_RAPIDAPI_KEY");
     if (!apiKey) {
       return json({ error: "JUDGE0_RAPIDAPI_KEY not configured" }, 500);
     }
+
 
     const body = (await req.json()) as ExecuteRequest;
 
