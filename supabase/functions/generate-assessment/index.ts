@@ -519,20 +519,71 @@ serve(async (req) => {
       assessment.pass_mark = mcqPassMark;
       assessment.total_questions = mcqCount;
 
-      // Validate each MCQ answer before returning
       if (assessment.questions?.length) {
-        assessment.questions = assessment.questions.filter((q: any) => validateMCQ(q));
-        // Re-number
-        assessment.questions.forEach((q: any, i: number) => { q.question_number = i + 1; });
-        assessment.total_questions = assessment.questions.length;
+        // Run Answer Verification Engine: double-answer + aptitude-step + structural
+        let { verified, rejected } = await runMCQVerificationPipeline(
+          assessment.questions, skill, topic, LOVABLE_API_KEY,
+        );
+        console.log(`[VERIFY] pass1: ${verified.length} verified, ${rejected.length} rejected`);
 
-        // Store validated + deduplicated questions in background
-        storeValidatedQuestions(skill, topic, difficulty, assessment.questions);
+        // Failsafe: regenerate to backfill rejected questions (one retry)
+        if (rejected.length > 0 && verified.length < mcqCount) {
+          try {
+            const regen = await callAI(
+              promptData.systemPrompt + `\nREGENERATE ${rejected.length} additional high-quality questions. Avoid prior mistakes.`,
+              skill, topic, difficulty, mode, promptData.toolName, promptData.toolSchema, LOVABLE_API_KEY,
+            );
+            if (regen?.questions?.length) {
+              const { verified: v2 } = await runMCQVerificationPipeline(regen.questions, skill, topic, LOVABLE_API_KEY);
+              console.log(`[VERIFY] failsafe regen produced ${v2.length} additional verified`);
+              verified = verified.concat(v2).slice(0, mcqCount);
+            }
+          } catch (e) {
+            console.error("Failsafe regen error:", e);
+          }
+        }
+
+        verified.forEach((q: any, i: number) => { q.question_number = i + 1; });
+        assessment.questions = verified;
+        assessment.total_questions = verified.length;
+        assessment.verification_summary = {
+          verified: verified.length,
+          rejected: rejected.length,
+          rejection_reasons: rejected.slice(0, 5).map(r => r.reason),
+        };
+
+        // Persist only verified questions (dedup at >85% similarity happens in store fn)
+        storeValidatedQuestions(skill, topic, difficulty, verified);
       }
     }
 
     if (isProgramming && assessment.problems?.length) {
-      assessment.problems = assessment.problems.filter((p: any) => validateProgramming(p));
+      const language = (skill || "python").toLowerCase();
+      const verifiedProblems: any[] = [];
+      for (const p of assessment.problems) {
+        const r = await verifyProgrammingProblem(p, language);
+        if (r.ok) {
+          p._verification = { status: "Verified" };
+          verifiedProblems.push(p);
+        } else {
+          console.log(`[VERIFY REJECT programming] ${r.reason} — ${p.title}`);
+        }
+      }
+      // Failsafe: if all rejected, attempt one regeneration pass
+      if (verifiedProblems.length === 0 && assessment.problems.length > 0) {
+        try {
+          const regen = await callAI(
+            promptData.systemPrompt + `\nREGENERATE: previous solution_code failed against the provided test cases. Ensure solution_code is correct and deterministic.`,
+            skill, topic, difficulty, mode, promptData.toolName, promptData.toolSchema, LOVABLE_API_KEY,
+          );
+          for (const p of (regen?.problems ?? [])) {
+            const r = await verifyProgrammingProblem(p, language);
+            if (r.ok) { p._verification = { status: "Verified" }; verifiedProblems.push(p); }
+          }
+        } catch (e) { console.error("Programming failsafe error:", e); }
+      }
+      assessment.problems = verifiedProblems;
+      assessment.verification_summary = { verified: verifiedProblems.length };
     }
 
     return new Response(JSON.stringify({
