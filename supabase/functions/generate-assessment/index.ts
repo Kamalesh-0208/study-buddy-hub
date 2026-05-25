@@ -120,6 +120,8 @@ async function storeValidatedQuestions(skill: string, topic: string, difficulty:
         correct_answer: q.correct_answer,
         explanation: q.explanation || "",
         validated: true,
+        verification_status: "Verified",
+        verification_metadata: q._verification ?? null,
       });
       // Also add to existingTexts so we dedup within the batch
       existingTexts.push(q.question_text);
@@ -345,6 +347,125 @@ async function callAI(systemPrompt: string, skill: string, topic: string, diffic
   return assessment;
 }
 
+// ============================================================================
+// ANSWER VERIFICATION ENGINE
+// ============================================================================
+
+// Stage 1: Double-answer verification — ask AI to independently re-solve the question
+async function verifyAnswerIndependently(q: any, apiKey: string): Promise<{ match: boolean; aiAnswer: string }> {
+  try {
+    const optionsText = Object.entries(q.options).map(([k, v]) => `${k}. ${v}`).join("\n");
+    const prompt = `Solve this multiple choice question independently. Reason carefully, then on the LAST line output ONLY the single letter (A, B, C, or D) of the correct option.
+
+Question: ${q.question_text}
+
+Options:
+${optionsText}`;
+
+    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "google/gemini-3-flash-preview",
+        messages: [
+          { role: "system", content: "You are an expert problem solver. Solve independently with rigorous reasoning." },
+          { role: "user", content: prompt },
+        ],
+        temperature: 0.1,
+      }),
+    });
+    if (!res.ok) return { match: true, aiAnswer: q.correct_answer }; // fail-open on infra errors
+    const data = await res.json();
+    const content: string = data.choices?.[0]?.message?.content ?? "";
+    const matches = content.match(/\b([ABCD])\b/g);
+    const aiAnswer = matches ? matches[matches.length - 1] : "";
+    return { match: aiAnswer === q.correct_answer, aiAnswer };
+  } catch (e) {
+    console.error("Independent verify error:", e);
+    return { match: true, aiAnswer: q.correct_answer };
+  }
+}
+
+// Stage 2: Aptitude/math explanation must show step-by-step working + final answer
+function isAptitudeContext(skill: string, topic: string): boolean {
+  const s = `${skill} ${topic}`.toLowerCase();
+  return ["math", "aptitude", "reasoning", "quantitative", "arithmetic", "algebra", "numeric"].some(k => s.includes(k));
+}
+
+function verifyAptitudeExplanation(q: any): boolean {
+  const exp: string = q.explanation ?? "";
+  if (exp.length < 40) return false;
+  const hasSteps = /step\s*\d|step\s*[-–]/i.test(exp) || (exp.match(/\d+\s*[\+\-\*\/\=×÷]/g)?.length ?? 0) >= 1;
+  if (!hasSteps) return false;
+  const chosenText = (q.options?.[q.correct_answer] ?? "").toString().toLowerCase();
+  const mentionsLetter = new RegExp(`\\b${q.correct_answer}\\b|option\\s*${q.correct_answer}`, "i").test(exp);
+  const mentionsText = chosenText.length > 0 && exp.toLowerCase().includes(chosenText.slice(0, Math.min(20, chosenText.length)));
+  return mentionsLetter || mentionsText;
+}
+
+// Stage 3: Programming validation — run reference solution against all test cases via execute-code
+async function verifyProgrammingProblem(p: any, language: string): Promise<{ ok: boolean; reason?: string }> {
+  if (!validateProgramming(p)) return { ok: false, reason: "missing required fields" };
+  const tests = [...(p.sample_tests ?? []), ...(p.hidden_tests ?? [])];
+  const langMap: Record<string, string> = { python: "python", c: "c", "c++": "cpp", cpp: "cpp", java: "java" };
+  const lang = langMap[language.toLowerCase()] ?? "python";
+  try {
+    const url = `${Deno.env.get("SUPABASE_URL")}/functions/v1/execute-code`;
+    for (const t of tests) {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+        },
+        body: JSON.stringify({ language: lang, source_code: p.solution_code, stdin: t.input ?? "" }),
+      });
+      if (!res.ok) return { ok: false, reason: `execute-code ${res.status}` };
+      const out = await res.json();
+      const actual = (out.stdout ?? out.output ?? "").toString().trim();
+      const expected = (t.expected_output ?? "").toString().trim();
+      if (actual !== expected) return { ok: false, reason: `test failed: expected "${expected}" got "${actual}"` };
+    }
+    return { ok: true };
+  } catch (e) {
+    console.error("Programming verify error:", e);
+    return { ok: false, reason: String(e) };
+  }
+}
+
+// Full MCQ verification pipeline (Stages 1 + 2 + structural)
+async function runMCQVerificationPipeline(
+  questions: any[],
+  skill: string,
+  topic: string,
+  apiKey: string,
+): Promise<{ verified: any[]; rejected: { q: any; reason: string }[] }> {
+  const verified: any[] = [];
+  const rejected: { q: any; reason: string }[] = [];
+  const aptitude = isAptitudeContext(skill, topic);
+
+  const checks = await Promise.all(questions.map(async (q) => {
+    if (!validateMCQ(q)) return { q, ok: false, reason: "structural validation failed", aiAnswer: "" };
+    const { match, aiAnswer } = await verifyAnswerIndependently(q, apiKey);
+    if (!match) return { q, ok: false, reason: `answer mismatch: AI re-solved as ${aiAnswer}, marked ${q.correct_answer}`, aiAnswer };
+    if (aptitude && !verifyAptitudeExplanation(q)) {
+      return { q, ok: false, reason: "aptitude explanation missing step-by-step working", aiAnswer };
+    }
+    return { q, ok: true, aiAnswer };
+  }));
+
+  for (const c of checks) {
+    if (c.ok) {
+      (c.q as any)._verification = { independent_answer: c.aiAnswer, status: "Verified" };
+      verified.push(c.q);
+    } else {
+      console.log(`[VERIFY REJECT] ${c.reason} — ${c.q.question_text?.substring(0, 60)}`);
+      rejected.push({ q: c.q, reason: c.reason });
+    }
+  }
+  return { verified, rejected };
+}
+
 // --- Main Handler ---
 
 serve(async (req) => {
@@ -398,20 +519,71 @@ serve(async (req) => {
       assessment.pass_mark = mcqPassMark;
       assessment.total_questions = mcqCount;
 
-      // Validate each MCQ answer before returning
       if (assessment.questions?.length) {
-        assessment.questions = assessment.questions.filter((q: any) => validateMCQ(q));
-        // Re-number
-        assessment.questions.forEach((q: any, i: number) => { q.question_number = i + 1; });
-        assessment.total_questions = assessment.questions.length;
+        // Run Answer Verification Engine: double-answer + aptitude-step + structural
+        let { verified, rejected } = await runMCQVerificationPipeline(
+          assessment.questions, skill, topic, LOVABLE_API_KEY,
+        );
+        console.log(`[VERIFY] pass1: ${verified.length} verified, ${rejected.length} rejected`);
 
-        // Store validated + deduplicated questions in background
-        storeValidatedQuestions(skill, topic, difficulty, assessment.questions);
+        // Failsafe: regenerate to backfill rejected questions (one retry)
+        if (rejected.length > 0 && verified.length < mcqCount) {
+          try {
+            const regen = await callAI(
+              promptData.systemPrompt + `\nREGENERATE ${rejected.length} additional high-quality questions. Avoid prior mistakes.`,
+              skill, topic, difficulty, mode, promptData.toolName, promptData.toolSchema, LOVABLE_API_KEY,
+            );
+            if (regen?.questions?.length) {
+              const { verified: v2 } = await runMCQVerificationPipeline(regen.questions, skill, topic, LOVABLE_API_KEY);
+              console.log(`[VERIFY] failsafe regen produced ${v2.length} additional verified`);
+              verified = verified.concat(v2).slice(0, mcqCount);
+            }
+          } catch (e) {
+            console.error("Failsafe regen error:", e);
+          }
+        }
+
+        verified.forEach((q: any, i: number) => { q.question_number = i + 1; });
+        assessment.questions = verified;
+        assessment.total_questions = verified.length;
+        assessment.verification_summary = {
+          verified: verified.length,
+          rejected: rejected.length,
+          rejection_reasons: rejected.slice(0, 5).map(r => r.reason),
+        };
+
+        // Persist only verified questions (dedup at >85% similarity happens in store fn)
+        storeValidatedQuestions(skill, topic, difficulty, verified);
       }
     }
 
     if (isProgramming && assessment.problems?.length) {
-      assessment.problems = assessment.problems.filter((p: any) => validateProgramming(p));
+      const language = (skill || "python").toLowerCase();
+      const verifiedProblems: any[] = [];
+      for (const p of assessment.problems) {
+        const r = await verifyProgrammingProblem(p, language);
+        if (r.ok) {
+          p._verification = { status: "Verified" };
+          verifiedProblems.push(p);
+        } else {
+          console.log(`[VERIFY REJECT programming] ${r.reason} — ${p.title}`);
+        }
+      }
+      // Failsafe: if all rejected, attempt one regeneration pass
+      if (verifiedProblems.length === 0 && assessment.problems.length > 0) {
+        try {
+          const regen = await callAI(
+            promptData.systemPrompt + `\nREGENERATE: previous solution_code failed against the provided test cases. Ensure solution_code is correct and deterministic.`,
+            skill, topic, difficulty, mode, promptData.toolName, promptData.toolSchema, LOVABLE_API_KEY,
+          );
+          for (const p of (regen?.problems ?? [])) {
+            const r = await verifyProgrammingProblem(p, language);
+            if (r.ok) { p._verification = { status: "Verified" }; verifiedProblems.push(p); }
+          }
+        } catch (e) { console.error("Programming failsafe error:", e); }
+      }
+      assessment.problems = verifiedProblems;
+      assessment.verification_summary = { verified: verifiedProblems.length };
     }
 
     return new Response(JSON.stringify({

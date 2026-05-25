@@ -431,6 +431,8 @@ export type Database = {
           skill: string
           topic: string
           validated: boolean
+          verification_metadata: Json | null
+          verification_status: string
         }
         Insert: {
           correct_answer: string
@@ -444,6 +446,8 @@ export type Database = {
           skill: string
           topic: string
           validated?: boolean
+          verification_metadata?: Json | null
+          verification_status?: string
         }
         Update: {
           correct_answer?: string
@@ -457,6 +461,8 @@ export type Database = {
           skill?: string
           topic?: string
           validated?: boolean
+          verification_metadata?: Json | null
+          verification_status?: string
         }
         Relationships: []
       }
