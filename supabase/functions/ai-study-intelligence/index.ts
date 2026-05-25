@@ -147,7 +147,7 @@ serve(async (req) => {
         const avgFocus = subSessions.length > 0 ? Math.round(subSessions.reduce((sum, ss) => sum + (ss.focus_score ?? 80), 0) / subSessions.length) : 0;
         const lastStudied = s.last_studied_at ? new Date(s.last_studied_at).toLocaleDateString() : "never";
         const exam = exams.find(e => e.subject_id === s.id);
-        return `- ${s.name}: ${totalHours.toFixed(1)}h studied, avg focus ${avgFocus}, last studied ${lastStudied}${exam ? `, exam on ${exam.exam_date}` : ""}`;
+        return `- ${sanitize(s.name, 60)}: ${totalHours.toFixed(1)}h studied, avg focus ${avgFocus}, last studied ${lastStudied}${exam ? `, exam on ${exam.exam_date}` : ""}`;
       }).join("\n");
 
       const avgSessionLen = sessions.length > 0 ? Math.round(sessions.reduce((s, ss) => s + ss.duration_seconds, 0) / sessions.length / 60) : 25;
