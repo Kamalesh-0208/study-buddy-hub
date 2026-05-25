@@ -297,7 +297,7 @@ SUBJECTS & PERFORMANCE:
 ${subjectContext || "No subjects"}
 
 INCOMPLETE TASKS:
-${tasks.filter(t => !t.completed).map(t => `- ${t.title} (${subjects.find(s => s.id === t.subject_id)?.name ?? "general"}, priority: ${t.priority})`).join("\n") || "None"}
+${tasks.filter(t => !t.completed).map(t => `- ${sanitize(t.title, 80)} (${sanitize(subjects.find(s => s.id === t.subject_id)?.name ?? "general", 60)}, priority: ${sanitize(t.priority, 20)})`).join("\n") || "None"}
 
 Based on low study time, incomplete tasks, and low focus scores, identify specific weak topics within each subject.`;
 
