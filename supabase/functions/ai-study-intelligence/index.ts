@@ -288,7 +288,7 @@ ${exams.map(e => `- ${subjects.find(s => s.id === e.subject_id)?.name ?? "Unknow
         const incompleteTasks = subTasks.filter(t => !t.completed);
         const lowFocusSessions = subSessions.filter(ss => (ss.focus_score ?? 80) < 60);
         const totalHours = Number(s.total_study_hours) || 0;
-        return `- ${s.name}: ${totalHours.toFixed(1)}h total, ${subSessions.length} sessions, ${lowFocusSessions.length} low-focus sessions, ${incompleteTasks.length} incomplete tasks (${incompleteTasks.map(t => t.title).join(", ")})`;
+        return `- ${sanitize(s.name, 60)}: ${totalHours.toFixed(1)}h total, ${subSessions.length} sessions, ${lowFocusSessions.length} low-focus sessions, ${incompleteTasks.length} incomplete tasks (${incompleteTasks.map(t => sanitize(t.title, 80)).join(", ")})`;
       }).join("\n");
 
       const prompt = `Analyze this student's study data and detect weak topics within each subject.
