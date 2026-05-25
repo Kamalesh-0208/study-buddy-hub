@@ -24,7 +24,22 @@ serve(async (req) => {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) throw new Error("Unauthorized");
 
-    const { skill_name, specific_topic, daily_hours = 2, target_days = 7, experience_level = "beginner" } = await req.json();
+    const { skill_name: rawSkill, specific_topic: rawTopic, daily_hours = 2, target_days = 7, experience_level: rawLevel = "beginner" } = await req.json();
+    if (!rawSkill) throw new Error("Skill name is required");
+
+    const sanitize = (v: unknown, maxLen: number): string => {
+      if (typeof v !== "string") return "";
+      let s = v.replace(/[\r\n\t]+/g, " ").trim();
+      s = s.replace(/```/g, "").replace(/<\|.*?\|>/g, "");
+      s = s.replace(/\b(ignore|disregard|override)\s+(all|previous|prior)\s+(instructions|prompts?|rules?)\b/gi, "[filtered]");
+      s = s.replace(/\b(system|assistant|user)\s*:\s*/gi, "");
+      if (s.length > maxLen) s = s.slice(0, maxLen);
+      return s;
+    };
+    const ALLOWED_LEVELS = new Set(["beginner", "intermediate", "advanced"]);
+    const skill_name = sanitize(rawSkill, 80);
+    const specific_topic = sanitize(rawTopic, 120);
+    const experience_level = ALLOWED_LEVELS.has(rawLevel) ? rawLevel : "beginner";
     if (!skill_name) throw new Error("Skill name is required");
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
