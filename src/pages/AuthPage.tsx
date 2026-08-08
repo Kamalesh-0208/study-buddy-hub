@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,10 @@ const AuthPage = () => {
   const [loading, setLoading] = useState(false);
   const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const rawNext = searchParams.get("next");
+  const next = rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/";
+  const redirectUrl = `${window.location.origin}${next}`;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,7 +40,7 @@ const AuthPage = () => {
     if (mode === "login") {
       const { error } = await signIn(email, password);
       if (error) toast.error(error.message);
-      else { toast.success("Welcome back!"); navigate("/"); }
+      else { toast.success("Welcome back!"); if (next === "/") navigate("/"); else window.location.href = redirectUrl; }
     } else {
       if (!displayName.trim()) { toast.error("Please enter your name"); setLoading(false); return; }
       const { error } = await signUp(email, password, displayName.trim());
