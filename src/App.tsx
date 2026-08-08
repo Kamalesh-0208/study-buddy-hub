@@ -19,6 +19,7 @@ import PlannerPage from "./pages/PlannerPage";
 import AssessmentPage from "./pages/AssessmentPage";
 import FeatureBuilderPage from "./pages/FeatureBuilderPage";
 import PlaygroundPage from "./pages/PlaygroundPage";
+import OAuthConsent from "./pages/OAuthConsent";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -35,14 +36,18 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+const safeNext = (value: string | null) =>
+  value && value.startsWith("/") && !value.startsWith("//") ? value : "/";
+
 const PublicRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
+  const next = safeNext(new URLSearchParams(window.location.search).get("next"));
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--gradient-bg)" }}>
       <Loader2 className="h-8 w-8 animate-spin text-primary" />
     </div>
   );
-  if (user) return <Navigate to="/" replace />;
+  if (user) return <Navigate to={next} replace />;
   return <>{children}</>;
 };
 
@@ -56,6 +61,7 @@ const App = () => (
           <Routes>
             <Route path="/auth" element={<PublicRoute><AuthPage /></PublicRoute>} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
+            <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
             <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
               <Route path="/" element={<Index />} />
               <Route path="/focus" element={<FocusPage />} />
